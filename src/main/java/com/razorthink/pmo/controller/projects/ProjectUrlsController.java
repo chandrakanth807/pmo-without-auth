@@ -1,5 +1,7 @@
 package com.razorthink.pmo.controller.projects;
 
+import com.razorthink.pmo.bean.project_urls.AddProjectResponse;
+import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.controller.AbstractWebappController;
 import com.razorthink.pmo.controller.test.TestController;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
@@ -8,11 +10,9 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestMethod;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
+import javax.validation.constraints.NotNull;
 import java.util.List;
 import java.util.Random;
 
@@ -24,41 +24,56 @@ public class ProjectUrlsController extends AbstractWebappController {
     @Autowired
     ProjectUrlsRepository projectUrlsRepository;
 
-    @RequestMapping(value = "/insert", method = RequestMethod.GET)
-    public ResponseEntity insertRecord() {
-        ProjectUrls tempObj = createTempObject();
-        projectUrlsRepository.save(tempObj);
-        return buildResponse("success");
+    @RequestMapping(value = "/projects", method = RequestMethod.POST)
+    public ResponseEntity insertRecord( @RequestBody ProjectUrls projectUrlDetails) {
+        try {
+            projectUrlDetails = projectUrlsRepository.save(projectUrlDetails);
+            AddProjectResponse response = new AddProjectResponse();
+            if (projectUrlDetails == null)
+                return buildErrorResponse(new WebappException("Failed to add Project URL"));
+            response.setSuccess(true);
+            response.setMessage("Project Url details added successfully");
+            return buildResponse(response);
+        } catch(Exception ex)
+        {
+            return buildErrorResponse(ex);
+        }
     }
 
-    @RequestMapping(value = "/update", method = RequestMethod.GET)
-    public ResponseEntity updateRecord() {
-        ProjectUrls tempObj = createTempObject();
-        tempObj.setUserName("updatedUser");
-        tempObj.setId(1);
-        projectUrlsRepository.save(tempObj);
-        return buildResponse("success");
+    @RequestMapping(value = "/projects", method = RequestMethod.PUT)
+    public ResponseEntity updateRecord(@RequestBody ProjectUrls projectUrls) {
+        try {
+            ProjectUrls projectUrls1 = projectUrlsRepository.save(projectUrls);
+            if (projectUrls1 == null) {
+                return buildErrorResponse(new WebappException("Failed to update Project URL"));
+            }
+            AddProjectResponse response = new AddProjectResponse();
+            response.setSuccess(true);
+            response.setMessage("Project Url update successful");
+            return buildResponse(response);
+        } catch (Exception ex)
+        {
+            return buildErrorResponse(ex);
+        }
     }
 
-    @RequestMapping(value = "/select", method = RequestMethod.GET)
-    public ResponseEntity findAllRecord() {
+    @RequestMapping(value = "/projects", method = RequestMethod.GET)
+    public ResponseEntity listProjects() {
         List<ProjectUrls> list = projectUrlsRepository.findAll();
         return buildResponse(list);
     }
 
-    @RequestMapping(value = "/delete/{id}", method = RequestMethod.GET)
-    public ResponseEntity deleteRecord(@PathVariable Integer id) {
-        projectUrlsRepository.delete(id);
-        return buildResponse("success");
-    }
-
-    private ProjectUrls createTempObject() {
-        ProjectUrls obj = new ProjectUrls();
-        obj.setUserName("user" + new Random().nextInt());
-        obj.setPassword("password");
-        obj.setOwner("chandra");
-        obj.setProjectName("PMO");
-        obj.setUrl("https://pmo.atlassian.net");
-        return obj;
+    @RequestMapping(value = "/projects/{id}", method = RequestMethod.DELETE)
+    public ResponseEntity deleteRecord( @NotNull @PathVariable Integer id) {
+        try{
+            projectUrlsRepository.delete(id);
+            AddProjectResponse response = new AddProjectResponse();
+            response.setSuccess(true);
+            response.setMessage("Project Url deletion successful");
+            return buildResponse(response);
+        } catch(Exception ex)
+        {
+         return buildErrorResponse(ex);
+        }
     }
 }
