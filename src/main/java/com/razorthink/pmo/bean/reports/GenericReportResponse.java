@@ -3,7 +3,7 @@ package com.razorthink.pmo.bean.reports;
 
 public class GenericReportResponse {
     private String downloadLink;
-    private String reportAsJson;
+    private Object reportAsJson;
 
     public String getDownloadLink() {
         return downloadLink;
@@ -13,11 +13,12 @@ public class GenericReportResponse {
         this.downloadLink = downloadLink;
     }
 
-    public String getReportAsJson() {
+
+    public Object getReportAsJson() {
         return reportAsJson;
     }
 
-    public void setReportAsJson(String reportAsJson) {
+    public void setReportAsJson(Object reportAsJson) {
         this.reportAsJson = reportAsJson;
     }
 }

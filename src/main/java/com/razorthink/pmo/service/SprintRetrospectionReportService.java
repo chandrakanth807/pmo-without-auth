@@ -214,7 +214,7 @@ public class SprintRetrospectionReportService {
 
         GenericReportResponse response = new GenericReportResponse();
         response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
-        response.setReportAsJson(JSONUtils.toJson(sprintRetrospectionReport));
+        response.setReportAsJson(sprintRetrospectionReport);
         return response;
     }
 }

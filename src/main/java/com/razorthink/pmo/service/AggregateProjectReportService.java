@@ -219,7 +219,7 @@ public class AggregateProjectReportService {
         }
         GenericReportResponse response = new GenericReportResponse();
         response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
-        response.setReportAsJson(JSONUtils.toJson(aggregateProjectReport.getSprintDetails()));
+        response.setReportAsJson(aggregateProjectReport.getSprintDetails());
         return response;
     }
 }

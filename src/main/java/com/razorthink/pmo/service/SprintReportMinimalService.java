@@ -251,7 +251,7 @@ public class SprintReportMinimalService {
         exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, sprintReportList);
         GenericReportResponse response = new GenericReportResponse();
         response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
-        response.setReportAsJson(JSONUtils.toJson(sprintReportList));
+        response.setReportAsJson(sprintReportList);
         return response;
     }
 }
