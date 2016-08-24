@@ -1,4 +1,4 @@
-package com.razorthink.pmo.controller.projects;
+package com.razorthink.pmo.controller.jira;
 
 import com.razorthink.pmo.bean.project_urls.AddProjectResponse;
 import com.razorthink.pmo.commons.exceptions.WebappException;
