@@ -1,0 +1,5 @@
+name,startDate,endDate,deliveryStatus,estimatedVsActualAccuracy,sprintChanges,estimateProvidedStatus,taskDescription_Statistics
+BBR Sprint 1,07/26/2016,08/11/2016,Completed on time,83 %,0 / 74,64 / 74,62 / 74,
+Is Sprint followed?,true
+Backlog Count,null
+Issues without Story,0 / 0
