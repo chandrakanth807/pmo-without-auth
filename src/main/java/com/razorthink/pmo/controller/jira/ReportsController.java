@@ -40,6 +40,12 @@ public class ReportsController extends AbstractWebappController {
     @Autowired
     private SprintRetrospectionReportService sprintRetrospectionReportService;
 
+    @Autowired
+    private SprintReportTimeGainedService sprintReportTimeGainedService;
+
+    @Autowired
+    private SprintReportTimeExceededService sprintReportTimeExceededService;
+
 
     @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/subProject/{subProjectName}/reports/board-summary", method = RequestMethod.GET)
     public ResponseEntity getAggregateProjectReport(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("subProjectName") String subProjectName) {
@@ -92,6 +98,44 @@ public class ReportsController extends AbstractWebappController {
             basicReportRequestParams.setSubProjectName(subProjectName);
             basicReportRequestParams.setSprintName(sprintName);
             return buildResponse(sprintRetrospectionReportService.getSprintRetrospectionReport(basicReportRequestParams, restClient, jiraClient));
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            return buildErrorResponse(e);
+        }
+    }
+
+    @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/sprint/{sprintName}/subProject/{subProjectName}/reports/time-gained-sprint-report", method = RequestMethod.GET)
+    public ResponseEntity getMinimalSprintReportTimeGained(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("sprintName") String sprintName, @PathVariable("subProjectName") String subProjectName ) {
+        try {
+            ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
+            Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
+            JiraRestClient restClient = loginService.getRestClient(credentials);
+            JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
+            GreenHopperClient gh = advancedLoginService.getGreenHopperClient(jiraClient);
+            BasicReportRequestParams basicReportRequestParams = new BasicReportRequestParams();
+            basicReportRequestParams.setRapidViewName(rapidViewName);
+            basicReportRequestParams.setSubProjectName(subProjectName);
+            basicReportRequestParams.setSprintName(sprintName);
+            return buildResponse(sprintReportTimeGainedService.getMininmalSprintReportTimeGained(basicReportRequestParams, restClient, jiraClient));
+        } catch (Exception e) {
+            logger.error(e.getMessage());
+            return buildErrorResponse(e);
+        }
+    }
+
+    @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/sprint/{sprintName}/subProject/{subProjectName}/reports/time-exceeded-tickets-sprint-report", method = RequestMethod.GET)
+    public ResponseEntity getMinimalSprintReportTimeExceeded(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("sprintName") String sprintName, @PathVariable("subProjectName") String subProjectName ) {
+        try {
+            ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
+            Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
+            JiraRestClient restClient = loginService.getRestClient(credentials);
+            JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
+            GreenHopperClient gh = advancedLoginService.getGreenHopperClient(jiraClient);
+            BasicReportRequestParams basicReportRequestParams = new BasicReportRequestParams();
+            basicReportRequestParams.setRapidViewName(rapidViewName);
+            basicReportRequestParams.setSubProjectName(subProjectName);
+            basicReportRequestParams.setSprintName(sprintName);
+            return buildResponse(sprintReportTimeExceededService.getMininmalSprintReportTimeGained(basicReportRequestParams, restClient, jiraClient));
         } catch (Exception e) {
             logger.error(e.getMessage());
             return buildErrorResponse(e);
