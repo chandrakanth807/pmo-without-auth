@@ -60,6 +60,8 @@ public class ProjectUrlsController extends AbstractWebappController {
     @RequestMapping(value = "/projects", method = RequestMethod.GET)
     public ResponseEntity listProjects() {
         List<ProjectUrls> list = projectUrlsRepository.findAll();
+        for(ProjectUrls projectUrl : list)
+            projectUrl.setPassword("dummy");
         return buildResponse(list);
     }
 
