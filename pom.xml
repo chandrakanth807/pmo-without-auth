@@ -102,6 +102,13 @@
 			<version>7.0.10</version>
 		</dependency>
 
+        <!--commons lang for convert to csv-->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-lang3</artifactId>
+            <version>3.4</version>
+        </dependency>
+
 		<dependency>
 			<groupId>org.springframework.boot</groupId>
 			<artifactId>spring-boot-starter-test</artifactId>
@@ -123,6 +130,22 @@
 			</dependency>
 		</dependencies>
 	</dependencyManagement>
+
+    <repositories>
+        <repository>
+            <id>atlassian-public</id>
+            <url>https://maven.atlassian.com/repository/public</url>
+            <snapshots>
+                <enabled>true</enabled>
+                <updatePolicy>never</updatePolicy>
+                <checksumPolicy>warn</checksumPolicy>
+            </snapshots>
+            <releases>
+                <enabled>true</enabled>
+                <checksumPolicy>warn</checksumPolicy>
+            </releases>
+        </repository>
+    </repositories>
 
 	<build>
 		<plugins>

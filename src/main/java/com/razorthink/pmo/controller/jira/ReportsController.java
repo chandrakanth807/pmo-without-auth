@@ -3,7 +3,6 @@ package com.razorthink.pmo.controller.jira;
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.razorthink.pmo.bean.reports.BasicReportRequestParams;
 import com.razorthink.pmo.bean.reports.Credls;
-import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.controller.AbstractWebappController;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
 import com.razorthink.pmo.service.*;
@@ -16,7 +15,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import javax.ws.rs.Path;
 
 @RestController
 @RequestMapping("/rest/jira/projects")
