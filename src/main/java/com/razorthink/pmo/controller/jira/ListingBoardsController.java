@@ -1,6 +1,6 @@
 package com.razorthink.pmo.controller.jira;
 
-import com.razorthink.pmo.bean.project_urls.RapidView;
+import com.razorthink.pmo.bean.projecturls.RapidView;
 import com.razorthink.pmo.commons.config.RestControllerRoute;
 import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.controller.AbstractWebappController;

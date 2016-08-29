@@ -1,4 +1,4 @@
-package com.razorthink.pmo.bean.project_urls.jira;
+package com.razorthink.pmo.bean.projecturls.jira;
 
 
 import java.util.List;

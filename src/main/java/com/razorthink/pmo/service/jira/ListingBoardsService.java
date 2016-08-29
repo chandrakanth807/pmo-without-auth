@@ -1,11 +1,11 @@
 package com.razorthink.pmo.service.jira;
 
 import com.atlassian.jira.rest.client.api.JiraRestClient;
-import com.razorthink.pmo.bean.project_urls.RapidView;
-import com.razorthink.pmo.bean.project_urls.Sprint;
-import com.razorthink.pmo.bean.project_urls.SubProject;
-import com.razorthink.pmo.bean.project_urls.jira.JiraResponseObject;
-import com.razorthink.pmo.bean.project_urls.jira.Value;
+import com.razorthink.pmo.bean.projecturls.RapidView;
+import com.razorthink.pmo.bean.projecturls.Sprint;
+import com.razorthink.pmo.bean.projecturls.SubProject;
+import com.razorthink.pmo.bean.projecturls.jira.JiraResponseObject;
+import com.razorthink.pmo.bean.projecturls.jira.Value;
 import com.razorthink.pmo.bean.reports.Credls;
 import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
