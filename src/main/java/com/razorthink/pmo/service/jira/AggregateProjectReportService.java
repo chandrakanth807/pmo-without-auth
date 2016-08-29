@@ -113,10 +113,10 @@ public class AggregateProjectReportService {
                                     "[\\[,]\".*?\\[.*?=(\\d+),.*?=(\\d+),.*?name=(.*?),.*?=.*?,.*?=(.*?),.*?=(.*?),.*?=(.*?),.*?]\"");
                             Matcher matcher = pattern.matcher(
                                     retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());
-                            System.out.println(
+                            logger.info(
                                     retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());
                             while (matcher.find()) {
-                                System.out.println("matched pattern is " + matcher.group());
+                                logger.info("matched pattern is " + matcher.group());
                                 if (matcher.group(3).equals(sprint.getName())) {
                                     startDt = new DateTime(matcher.group(4));
                                     endDt = new DateTime(matcher.group(5));

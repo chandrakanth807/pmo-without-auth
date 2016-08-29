@@ -19,7 +19,4 @@ public final class JSONUtils {
         return gson.fromJson(json, clazz);
     }
 
-    public static void print(Object obj) {
-        System.out.println(toJson(obj));
-    }
 }

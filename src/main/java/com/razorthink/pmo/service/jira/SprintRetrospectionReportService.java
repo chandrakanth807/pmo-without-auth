@@ -100,7 +100,7 @@ public class SprintRetrospectionReportService {
         while (matcher.find()) {
             if (matcher.group(3).equals(sprint)) {
                 timezone = matcher.group(4).substring(23);
-                System.out.println(timezone);
+                logger.info(timezone);
                 startDt = new DateTime(matcher.group(4), DateTimeZone.forID(ZoneId.of(timezone).toString()));
                 endDt = new DateTime(matcher.group(5), DateTimeZone.forID(ZoneId.of(timezone).toString()));
                 if (!matcher.group(6).equals("<null>")) {
