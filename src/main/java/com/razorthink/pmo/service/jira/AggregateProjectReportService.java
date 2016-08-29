@@ -4,6 +4,7 @@ import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
+import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
 import com.razorthink.pmo.tables.ProjectUrls;
@@ -68,7 +69,7 @@ public class AggregateProjectReportService {
         String rapidViewName = basicReportRequestParams.getRapidViewName();
         if (project == null || rapidViewName == null) {
             logger.error("Error: Missing required paramaters");
-            throw new WebappException("Missing required paramaters");
+            throw new WebappException(Constants.Jira.MISSING_REQUIRED_PARAMETERS);
         }
         Integer estimatedHours = 0;
         Integer loggedHours = 0;
@@ -88,6 +89,46 @@ public class AggregateProjectReportService {
         Double accuracy = 0.0;
         AggregateProjectReport aggregateProjectReport = new AggregateProjectReport();
         List<SprintDetails> sprintDetailsList = new ArrayList<>();
+        totalTasks = processIssuesAndGetTotalTasks(restClient, jiraClient, gh, project, rapidViewName, estimatedHours, loggedHours, issuesWithoutStory, totalTasks, flag, sprintId, startDt, endDt, aggregateProjectReport, sprintDetailsList);
+
+        String filename = project + Constants.Jira.AGGREGATE_PROJECT_REPORT_EXTENSION;
+        filename = filename.replace(" ", "_");
+        ConvertToCSV exportToCSV = new ConvertToCSV();
+        exportToCSV.exportToCSV(env.getProperty(Constants.Jira.CSV_DOWNLOAD_DIRECTORY_PATH_PROPERTY) + filename, aggregateProjectReport.getSprintDetails());
+        FileWriter fileWriter = null;
+        try {
+            fileWriter = new FileWriter(env.getProperty(Constants.Jira.CSV_DOWNLOAD_DIRECTORY_PATH_PROPERTY) + filename, true);
+            fileWriter.write("Is Sprint followed?," + aggregateProjectReport.getIs_Sprint_followed() + "\n");
+            fileWriter.write("Backlog Count," + aggregateProjectReport.getBacklogCount() + "\n");
+            fileWriter
+                    .write("Issues without Story," + aggregateProjectReport.getIssuesWithoutStory() + " / " + totalTasks);
+        } catch (IOException e) {
+            logger.error("Error:" + e.getMessage());
+            throw new WebappException(e.getMessage());
+        } finally {
+            try {
+                fileWriter.flush();
+                fileWriter.close();
+            } catch (IOException e) {
+                logger.error("Error:" + e.getMessage());
+                throw new WebappException(e.getMessage());
+            }
+        }
+        GenericReportResponse response = new GenericReportResponse();
+        response.setDownloadLink(env.getProperty(Constants.Jira.DOWNLOAD_LINK_BASE_PATH_PROPERTY) + filename);
+        response.setReportAsJson(aggregateProjectReport.getSprintDetails());
+        return response;
+    }
+
+    private Integer processIssuesAndGetTotalTasks(JiraRestClient restClient, JiraClient jiraClient, GreenHopperClient gh, String project, String rapidViewName, Integer estimatedHours, Integer loggedHours, Integer issuesWithoutStory, Integer totalTasks, Boolean flag, int sprintId, DateTime startDt, DateTime endDt, AggregateProjectReport aggregateProjectReport, List<SprintDetails> sprintDetailsList) throws WebappException {
+        int rvId;
+        DateTime completeDate;
+        Integer totalEstimates;
+        Integer noEstimatesCount;
+        Integer noDescriptionCount;
+        Integer startAt;
+        Integer maxValue;
+        Double accuracy;
         try {
             List<RapidView> rapidviewsLIst = gh.getRapidViews();
             for (RapidView rapidView : rapidviewsLIst) {
@@ -206,32 +247,6 @@ public class AggregateProjectReportService {
             logger.error("Error:" + e.getMessage());
             throw new WebappException(e.getMessage());
         }
-        String filename = project + "_aggregate_report.csv";
-        filename = filename.replace(" ", "_");
-        ConvertToCSV exportToCSV = new ConvertToCSV();
-        exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, aggregateProjectReport.getSprintDetails());
-        FileWriter fileWriter = null;
-        try {
-            fileWriter = new FileWriter(env.getProperty("csv.filename") + filename, true);
-            fileWriter.write("Is Sprint followed?," + aggregateProjectReport.getIs_Sprint_followed() + "\n");
-            fileWriter.write("Backlog Count," + aggregateProjectReport.getBacklogCount() + "\n");
-            fileWriter
-                    .write("Issues without Story," + aggregateProjectReport.getIssuesWithoutStory() + " / " + totalTasks);
-        } catch (IOException e) {
-            logger.error("Error:" + e.getMessage());
-            throw new WebappException(e.getMessage());
-        } finally {
-            try {
-                fileWriter.flush();
-                fileWriter.close();
-            } catch (IOException e) {
-                logger.error("Error:" + e.getMessage());
-                throw new WebappException(e.getMessage());
-            }
-        }
-        GenericReportResponse response = new GenericReportResponse();
-        response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
-        response.setReportAsJson(aggregateProjectReport.getSprintDetails());
-        return response;
+        return totalTasks;
     }
 }

@@ -69,6 +69,20 @@ public class SprintRetrospectionReportService {
 
         String project = params.getSubProjectName();
         String sprint = params.getSprintName();
+        List<SprintRetrospection> sprintRetrospectionReport = processSprintRetrospectionRelatedIssues(restClient, jiraClient, project, sprint);
+
+        String filename = project + "_" + sprint + "_retrospection_report.csv";
+        filename = filename.replace(" ", "_");
+        ConvertToCSV exportToCSV = new ConvertToCSV();
+        exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, sprintRetrospectionReport);
+
+        GenericReportResponse response = new GenericReportResponse();
+        response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
+        response.setReportAsJson(sprintRetrospectionReport);
+        return response;
+    }
+
+    private List<SprintRetrospection> processSprintRetrospectionRelatedIssues(JiraRestClient restClient, JiraClient jiraClient, String project, String sprint) {
         int rvId = 0;
         int sprintId = 0;
         Double actualHours = 0.0;
@@ -85,6 +99,7 @@ public class SprintRetrospectionReportService {
         String jql = null;
         List<SprintRetrospection> sprintRetrospectionReport = new ArrayList<>();
         List<String> incompleteIssueKeys = new ArrayList<>();
+
         Set<String> assignee = new TreeSet<>();
         if (project == null || sprint == null) {
             logger.error("Error: Missing required paramaters");
@@ -110,6 +125,12 @@ public class SprintRetrospectionReportService {
                 rvId = Integer.parseInt(matcher.group(2));
             }
         }
+        processIncompletedIssues(jiraClient, rvId, sprintId, incompleteIssueKeys);
+        processRetrievedIssues(restClient, project, sprint, startDt, endDt, completeDate, timezone, sprintRetrospectionReport, incompleteIssueKeys, assignee, retrievedIssue);
+        return sprintRetrospectionReport;
+    }
+
+    private void processIncompletedIssues(JiraClient jiraClient, int rvId, int sprintId, List<String> incompleteIssueKeys) {
         try {
             IncompletedIssues incompletedIssues = incompletedIssuesService.get(jiraClient.getRestClient(), rvId, sprintId);
             for (SprintIssue issueValue : incompletedIssues.getIncompleteIssues()) {
@@ -119,21 +140,17 @@ public class SprintRetrospectionReportService {
             logger.error("Error:" + e.getMessage());
             throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
         }
+    }
+
+    private void processRetrievedIssues(JiraRestClient restClient, String project, String sprint, DateTime startDt, DateTime endDt, DateTime completeDate, String timezone, List<SprintRetrospection> sprintRetrospectionReport, List<String> incompleteIssueKeys, Set<String> assignee, Iterable<Issue> retrievedIssue) {
+        Double availableHours,actualHours,estimatedHours,surplus;
+        String jql;
+        Integer totalTasks, incompletedTasks;
+        DateTime tempDate;
+
         for (Issue issueValue : retrievedIssue) {
             availableHours = 0.0;
             if (!assignee.contains(issueValue.getAssignee().getDisplayName())) {
-                /*if( completeDate != null )
-				{
-					jql = " issue in workedIssues(\"" + startDt.toString("yyyy/MM/dd") + "\",\""
-							+ completeDate.toString("yyyy/MM/dd") + "\", " + issueValue.getAssignee().getName()
-							+ ") AND assignee is not EMPTY ORDER BY assignee ASC";
-				}
-				else
-				{
-					jql = " issue in workedIssues(\"" + startDt.toString("yyyy/MM/dd") + "\",\""
-							+ endDt.toString("yyyy/MM/dd") + "\"," + issueValue.getAssignee().getName()
-							+ ") AND assignee is not EMPTY ORDER BY assignee ASC";
-				}*/
                 jql = " sprint = '" + sprint
                         + "' AND project = '" + project + "' AND timespent > 0 AND assignee is not EMPTY ORDER BY assignee";
                 Iterable<Issue> assigneeIssue = restClient.getSearchClient().searchJql(jql, 1000, 0, null).claim()
@@ -188,14 +205,7 @@ public class SprintRetrospectionReportService {
                 availableHours *= 8D;
                 estimatedHours /= 60D;
                 actualHours /= 60D;
-				/*if( params.get("availableHours") != null )
-				{
-					availableHours = Double.parseDouble(params.get("availableHours"));
-				}
-				if( params.get(issueValue.getAssignee().getName()) != null )
-				{
-					availableHours = Double.parseDouble(params.get(issueValue.getAssignee().getName()));
-				}*/
+
                 surplus = availableHours - estimatedHours;
                 sprintRetrospection.setAssignee(issueValue.getAssignee().getDisplayName());
                 sprintRetrospection
@@ -217,14 +227,5 @@ public class SprintRetrospectionReportService {
                 assignee.add(issueValue.getAssignee().getDisplayName());
             }
         }
-        String filename = project + "_" + sprint + "_retrospection_report.csv";
-        filename = filename.replace(" ", "_");
-        ConvertToCSV exportToCSV = new ConvertToCSV();
-        exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, sprintRetrospectionReport);
-
-        GenericReportResponse response = new GenericReportResponse();
-        response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
-        response.setReportAsJson(sprintRetrospectionReport);
-        return response;
     }
 }

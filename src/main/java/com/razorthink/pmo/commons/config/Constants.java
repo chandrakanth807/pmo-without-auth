@@ -7,6 +7,10 @@ public final class Constants {
 
     public final class Jira {
         public static final String ERROR_FETCHING_CURRENT_USER = "error.fetching.current.user";
+        public static final String MISSING_REQUIRED_PARAMETERS = "missing.required.parameters";
+        public static final String AGGREGATE_PROJECT_REPORT_EXTENSION = "_aggregate_report.csv";
+        public static final String CSV_DOWNLOAD_DIRECTORY_PATH_PROPERTY = "csv.filename";
+        public static final String DOWNLOAD_LINK_BASE_PATH_PROPERTY = "csv.aliaspath";
 
         public final class ProjectUrlsController {
             private ProjectUrlsController() {

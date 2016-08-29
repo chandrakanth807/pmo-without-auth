@@ -5,6 +5,7 @@ import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
+import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.DataException;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
 import com.razorthink.pmo.tables.ProjectUrls;
@@ -74,7 +75,7 @@ public class SprintReportTimeExceededService {
         int sprintId = 0;
         if (project == null || sprint == null) {
             logger.error("Error: Missing required paramaters");
-            throw new DataException(HttpStatus.BAD_REQUEST.toString(), "Missing required paramaters");
+            throw new DataException(HttpStatus.BAD_REQUEST.toString(), Constants.Jira.MISSING_REQUIRED_PARAMETERS);
         }
         List<SprintReportTimeExceeded> sprintReportList = new ArrayList<>();
         SprintReportTimeExceeded sprintReport;
@@ -88,6 +89,135 @@ public class SprintReportTimeExceededService {
             sprintId = Integer.parseInt(matcher.group(1));
             rvId = Integer.parseInt(matcher.group(2));
         }
+        processRetrievedIssues(restClient, sprint, project, maxResults, startAt, sprintReportList, retrievedIssue);
+        String headerString = "Removed Issues";
+        appendHeading(sprintReportList, headerString);
+        processRemovedIssues(restClient, jiraClient, rvId, sprintId, sprintReportList);
+        String filename = project + "_" + sprint + "_minimal_report_time_exceeded.csv";
+        filename = filename.replace(" ", "_");
+        ConvertToCSV exportToCSV = new ConvertToCSV();
+        exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, sprintReportList);
+        GenericReportResponse response = new GenericReportResponse();
+        response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
+        response.setReportAsJson(sprintReportList);
+        return response;
+    }
+
+    private void processRemovedIssues(JiraRestClient restClient, JiraClient jiraClient, int rvId, int sprintId, List<SprintReportTimeExceeded> sprintReportList) {
+        SprintReportTimeExceeded sprintReport;
+        String headerString;
+        try {
+            RemovedIssues removedIssues = removedIssuesService.get(jiraClient.getRestClient(), rvId, sprintId);
+            processPuntedIssues(restClient, sprintReportList, removedIssues);
+            headerString = "Issues Added during Sprint";
+            appendHeading(sprintReportList, headerString);
+
+            processIssuesAdded(restClient, sprintReportList, removedIssues);
+        } catch (JiraException e) {
+            logger.error("Error:" + e.getMessage());
+            throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
+        }
+    }
+
+    private void processIssuesAdded(JiraRestClient restClient, List<SprintReportTimeExceeded> sprintReportList, RemovedIssues removedIssues) {
+        SprintReportTimeExceeded sprintReport;
+        for (String issueValue : removedIssues.getIssuesAdded()) {
+            Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue);
+            sprintReport = new SprintReportTimeExceeded();
+            try {
+
+                sprintReport.setIssueKey(issue.get().getKey());
+                sprintReport.setIssueType(issue.get().getIssueType().getName());
+                sprintReport.setStatus(issue.get().getStatus().getName());
+                sprintReport.setIssueSummary(issue.get().getSummary());
+                if (issue.get().getAssignee() != null) {
+                    sprintReport.setAssignee(issue.get().getAssignee().getDisplayName());
+                } else {
+                    sprintReport.setAssignee("unassigned");
+                }
+                if (issue.get().getTimeTracking() != null) {
+                    Integer estimatedMinutes = issue.get().getTimeTracking().getOriginalEstimateMinutes();
+                    Integer loggedMinutes = issue.get().getTimeTracking().getTimeSpentMinutes();
+
+                    Double exceededHours = getTimeExceeded(estimatedMinutes, loggedMinutes, issue.get().getStatus().getName());
+                    if (exceededHours == null)
+                        continue;
+                    sprintReport.setTimeExceeded(new DecimalFormat("##.##").format(exceededHours));
+                }
+                sprintReportList.add(sprintReport);
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error:" + e.getMessage());
+                throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
+            }
+        }
+    }
+
+    private void processPuntedIssues(JiraRestClient restClient, List<SprintReportTimeExceeded> sprintReportList, RemovedIssues removedIssues) {
+        SprintReportTimeExceeded sprintReport;
+        for (SprintIssue issueValue : removedIssues.getPuntedIssues()) {
+            Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
+            sprintReport = new SprintReportTimeExceeded();
+            try {
+                sprintReport.setIssueKey(issue.get().getKey());
+                sprintReport.setIssueType(issue.get().getIssueType().getName());
+                sprintReport.setStatus(issue.get().getStatus().getName());
+                sprintReport.setIssueSummary(issue.get().getSummary());
+                if (issue.get().getAssignee() != null) {
+                    sprintReport.setAssignee(issue.get().getAssignee().getDisplayName());
+                } else {
+                    sprintReport.setAssignee("unassigned");
+                }
+                if (issue.get().getTimeTracking() != null) {
+
+                    Integer estimatedMinutes = issue.get().getTimeTracking().getOriginalEstimateMinutes();
+                    Integer loggedMinutes = issue.get().getTimeTracking().getTimeSpentMinutes();
+
+                    Double exceededHours = getTimeExceeded(estimatedMinutes, loggedMinutes, issue.get().getStatus().getName());
+                    if (exceededHours == null)
+                        continue;
+                    sprintReport.setTimeExceeded(new DecimalFormat("##.##").format(exceededHours));
+
+                }
+                sprintReportList.add(sprintReport);
+            } catch (InterruptedException | ExecutionException e) {
+                logger.error("Error:" + e.getMessage());
+                throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
+            }
+        }
+    }
+
+    private void appendHeading(List<SprintReportTimeExceeded> sprintReportList, String headerString) {
+        SprintReportTimeExceeded sprintReport;
+        for (int i = 0; i < 2; i++) {
+            sprintReport = new SprintReportTimeExceeded();
+            sprintReport.setAssignee(" ");
+            sprintReport.setIssueKey(" ");
+            sprintReport.setIssueSummary(" ");
+            sprintReport.setIssueType(" ");
+            sprintReport.setTimeExceeded(" ");
+            sprintReport.setStatus(" ");
+            sprintReportList.add(sprintReport);
+        }
+        sprintReport = new SprintReportTimeExceeded();
+        sprintReport.setAssignee(" ");
+        sprintReport.setIssueSummary(" ");
+        sprintReport.setIssueType(" ");
+        sprintReport.setTimeExceeded(" ");
+        sprintReport.setStatus(" ");
+        sprintReport.setIssueKey(headerString);
+        sprintReportList.add(sprintReport);
+        sprintReport = new SprintReportTimeExceeded();
+        sprintReport.setAssignee(" ");
+        sprintReport.setIssueKey(" ");
+        sprintReport.setIssueSummary(" ");
+        sprintReport.setIssueType(" ");
+        sprintReport.setTimeExceeded(" ");
+        sprintReport.setStatus(" ");
+        sprintReportList.add(sprintReport);
+    }
+
+    private void processRetrievedIssues(JiraRestClient restClient, String sprint, String project, Integer maxResults, Integer startAt, List<SprintReportTimeExceeded> sprintReportList, Iterable<Issue> retrievedIssue) {
+        SprintReportTimeExceeded sprintReport;
         while (retrievedIssue.iterator().hasNext()) {
             for (Issue issueValue : retrievedIssue) {
                 Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
@@ -124,155 +254,6 @@ public class SprintReportTimeExceededService {
                     .searchJql(" sprint = '" + sprint + "' AND project = '" + project + "'", maxResults, startAt, null)
                     .claim().getIssues();
         }
-        for (int i = 0; i < 2; i++) {
-            sprintReport = new SprintReportTimeExceeded();
-            sprintReport.setAssignee(" ");
-            sprintReport.setIssueKey(" ");
-            sprintReport.setIssueSummary(" ");
-            sprintReport.setIssueType(" ");
-            sprintReport.setTimeExceeded(" ");
-            sprintReport.setStatus(" ");
-            sprintReportList.add(sprintReport);
-        }
-        sprintReport = new SprintReportTimeExceeded();
-        sprintReport.setAssignee(" ");
-        sprintReport.setIssueSummary(" ");
-        sprintReport.setIssueType(" ");
-        sprintReport.setTimeExceeded(" ");
-        sprintReport.setStatus(" ");
-        sprintReport.setIssueKey("Removed Issues");
-        sprintReportList.add(sprintReport);
-        sprintReport = new SprintReportTimeExceeded();
-        sprintReport.setAssignee(" ");
-        sprintReport.setIssueKey(" ");
-        sprintReport.setIssueSummary(" ");
-        sprintReport.setIssueType(" ");
-        sprintReport.setTimeExceeded(" ");
-        sprintReport.setStatus(" ");
-        sprintReportList.add(sprintReport);
-        try {
-            RemovedIssues removedIssues = removedIssuesService.get(jiraClient.getRestClient(), rvId, sprintId);
-            for (SprintIssue issueValue : removedIssues.getPuntedIssues()) {
-                Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
-                sprintReport = new SprintReportTimeExceeded();
-                try {
-                    sprintReport.setIssueKey(issue.get().getKey());
-                    sprintReport.setIssueType(issue.get().getIssueType().getName());
-                    sprintReport.setStatus(issue.get().getStatus().getName());
-                    sprintReport.setIssueSummary(issue.get().getSummary());
-                    if (issue.get().getAssignee() != null) {
-                        sprintReport.setAssignee(issue.get().getAssignee().getDisplayName());
-                    } else {
-                        sprintReport.setAssignee("unassigned");
-                    }
-                    if (issue.get().getTimeTracking() != null) {
-
-                        Integer estimatedMinutes = issue.get().getTimeTracking().getOriginalEstimateMinutes();
-                        Integer loggedMinutes = issue.get().getTimeTracking().getTimeSpentMinutes();
-
-                        Double exceededHours = getTimeExceeded(estimatedMinutes, loggedMinutes, issue.get().getStatus().getName());
-                        if (exceededHours == null)
-                            continue;
-                        sprintReport.setTimeExceeded(new DecimalFormat("##.##").format(exceededHours));
-                        /*if (issue.get().getTimeTracking().getOriginalEstimateMinutes() != null) {
-                            sprintReport.setEstimatedHours(new DecimalFormat("##.##")
-                                    .format(issue.get().getTimeTracking().getOriginalEstimateMinutes() / 60D));
-                        } else {
-                            sprintReport.setEstimatedHours("0");
-                        }
-                        if (issue.get().getTimeTracking().getTimeSpentMinutes() != null) {
-                            sprintReport.setLoggedHours(new DecimalFormat("##.##")
-                                    .format(issue.get().getTimeTracking().getTimeSpentMinutes() / 60D));
-                        } else {
-                            sprintReport.setLoggedHours("0");
-                        }*/
-                    }
-                    sprintReportList.add(sprintReport);
-                } catch (InterruptedException | ExecutionException e) {
-                    logger.error("Error:" + e.getMessage());
-                    throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
-                }
-            }
-            for (int i = 0; i < 2; i++) {
-                sprintReport = new SprintReportTimeExceeded();
-                sprintReport.setAssignee(" ");
-                sprintReport.setIssueKey(" ");
-                sprintReport.setIssueSummary(" ");
-                sprintReport.setIssueType(" ");
-                sprintReport.setTimeExceeded(" ");
-                sprintReport.setStatus(" ");
-                sprintReportList.add(sprintReport);
-            }
-            sprintReport = new SprintReportTimeExceeded();
-            sprintReport.setIssueKey("Issues Added during Sprint");
-            sprintReport.setAssignee(" ");
-            sprintReport.setIssueSummary(" ");
-            sprintReport.setIssueType(" ");
-            sprintReport.setTimeExceeded(" ");
-            sprintReport.setStatus(" ");
-            sprintReportList.add(sprintReport);
-            sprintReport = new SprintReportTimeExceeded();
-            sprintReport.setAssignee(" ");
-            sprintReport.setIssueKey(" ");
-            sprintReport.setIssueSummary(" ");
-            sprintReport.setIssueType(" ");
-            sprintReport.setTimeExceeded(" ");
-            sprintReport.setStatus(" ");
-            sprintReportList.add(sprintReport);
-            for (String issueValue : removedIssues.getIssuesAdded()) {
-                Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue);
-                sprintReport = new SprintReportTimeExceeded();
-                try {
-
-                    sprintReport.setIssueKey(issue.get().getKey());
-                    sprintReport.setIssueType(issue.get().getIssueType().getName());
-                    sprintReport.setStatus(issue.get().getStatus().getName());
-                    sprintReport.setIssueSummary(issue.get().getSummary());
-                    if (issue.get().getAssignee() != null) {
-                        sprintReport.setAssignee(issue.get().getAssignee().getDisplayName());
-                    } else {
-                        sprintReport.setAssignee("unassigned");
-                    }
-                    if (issue.get().getTimeTracking() != null) {
-                        Integer estimatedMinutes = issue.get().getTimeTracking().getOriginalEstimateMinutes();
-                        Integer loggedMinutes = issue.get().getTimeTracking().getTimeSpentMinutes();
-
-                        Double exceededHours = getTimeExceeded(estimatedMinutes, loggedMinutes, issue.get().getStatus().getName());
-                        if (exceededHours == null)
-                            continue;
-                        sprintReport.setTimeExceeded(new DecimalFormat("##.##").format(exceededHours));
-
-                        /*if (issue.get().getTimeTracking().getOriginalEstimateMinutes() != null) {
-                            sprintReport.setEstimatedHours(new DecimalFormat("##.##")
-                                    .format(issue.get().getTimeTracking().getOriginalEstimateMinutes() / 60D));
-                        } else {
-                            sprintReport.setEstimatedHours("0");
-                        }
-                        if (issue.get().getTimeTracking().getTimeSpentMinutes() != null) {
-                            sprintReport.setLoggedHours(new DecimalFormat("##.##")
-                                    .format(issue.get().getTimeTracking().getTimeSpentMinutes() / 60D));
-                        } else {
-                            sprintReport.setLoggedHours("0");
-                        }*/
-                    }
-                    sprintReportList.add(sprintReport);
-                } catch (InterruptedException | ExecutionException e) {
-                    logger.error("Error:" + e.getMessage());
-                    throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
-                }
-            }
-        } catch (JiraException e) {
-            logger.error("Error:" + e.getMessage());
-            throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
-        }
-        String filename = project + "_" + sprint + "_minimal_report_time_exceeded.csv";
-        filename = filename.replace(" ", "_");
-        ConvertToCSV exportToCSV = new ConvertToCSV();
-        exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, sprintReportList);
-        GenericReportResponse response = new GenericReportResponse();
-        response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
-        response.setReportAsJson(sprintReportList);
-        return response;
     }
 
     private Double getTimeExceeded(Integer estimatedMinutes, Integer loggedMinutes, String status) {
