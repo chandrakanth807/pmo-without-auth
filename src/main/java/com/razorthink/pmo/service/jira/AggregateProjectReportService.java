@@ -5,6 +5,8 @@ import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.commons.exceptions.WebappException;
+import com.razorthink.pmo.repositories.ProjectUrlsRepository;
+import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.greenhopper.GreenHopperClient;
@@ -36,20 +38,32 @@ public class AggregateProjectReportService {
 
     private static final Logger logger = LoggerFactory.getLogger(AggregateProjectReportService.class);
 
+    @Autowired
+    private LoginService loginService;
+
+    @Autowired
+    private AdvancedLoginService advancedLoginService;
+
+    @Autowired
+    private ProjectUrlsRepository projectUrlsRepository;
+
     /**
      * Generates an Aggregate report of the project specified in the argument
      *
      * @param basicReportRequestParams contains subproject name and board name
-     * @param restClient               It is used to make Rest calls to Jira to fetch sprint details
-     * @param jiraClient               It is used to fetch removed issues and issues added during a sprint
-     * @param gh                       GreenHopper client used to fetch rapidView details
      * @return Complete url of the Aggregate Project report generated, and reportAsJson
      * @throws WebappException If some internal error occurs
      */
-    public GenericReportResponse getAggregateProjectReport(BasicReportRequestParams basicReportRequestParams, JiraRestClient restClient,
-                                                           JiraClient jiraClient, GreenHopperClient gh) throws WebappException {
+    public GenericReportResponse getAggregateProjectReport( BasicReportRequestParams basicReportRequestParams ) throws WebappException {
 
         logger.debug("getAggregateProjectReport");
+
+        ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(basicReportRequestParams.getProjectUrlId());
+        Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
+        JiraRestClient restClient = loginService.getRestClient(credentials);
+        JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
+        GreenHopperClient gh = advancedLoginService.getGreenHopperClient(jiraClient);
+
         String project = basicReportRequestParams.getSubProjectName();
         String rapidViewName = basicReportRequestParams.getRapidViewName();
         if (project == null || rapidViewName == null) {

@@ -4,11 +4,10 @@ import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.jira.rest.client.api.domain.Worklog;
 import com.atlassian.util.concurrent.Promise;
-import com.razorthink.pmo.bean.reports.BasicReportRequestParams;
-import com.razorthink.pmo.bean.reports.GenericReportResponse;
-import com.razorthink.pmo.bean.reports.IncompletedIssues;
-import com.razorthink.pmo.bean.reports.SprintRetrospection;
+import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.commons.exceptions.DataException;
+import com.razorthink.pmo.repositories.ProjectUrlsRepository;
+import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.JiraException;
@@ -44,18 +43,30 @@ public class SprintRetrospectionReportService {
     @Autowired
     private IncompletedIssuesService incompletedIssuesService;
 
+    @Autowired
+    private LoginService loginService;
+
+    @Autowired
+    private AdvancedLoginService advancedLoginService;
+
+    @Autowired
+    private ProjectUrlsRepository projectUrlsRepository;
+
     /**
      * Generates a Sprint Retrospection report of the sprint specified in the argument
      *
      * @param params sprint name, subproject name, projectUrlID
-     * @param restClient It is used to make Rest calls to Jira to fetch sprint details
-     * @param jiraClient It is used to fetch removed issues and issues added during a sprint
      * @return Complete url of the sprint Retrospection report generated
      * @throws DataException If some internal error occurs
      */
-    public GenericReportResponse getSprintRetrospectionReport(BasicReportRequestParams params, JiraRestClient restClient,
-                                                              JiraClient jiraClient) {
+    public GenericReportResponse getSprintRetrospectionReport(BasicReportRequestParams params) {
         logger.debug("getSprintRetrospectionReport");
+
+        ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(params.getProjectUrlId());
+        Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
+        JiraRestClient restClient = loginService.getRestClient(credentials);
+        JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
+
         String project = params.getSubProjectName();
         String sprint = params.getSprintName();
         int rvId = 0;

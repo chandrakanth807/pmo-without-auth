@@ -50,7 +50,6 @@ public class ListingBoardsService {
             }
     }
 
-
     public List<RapidView> getBoards(JiraClient advancedClient) throws WebappException {
         RestClient restClient = advancedClient.getRestClient();
         try {

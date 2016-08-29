@@ -6,9 +6,12 @@ import com.atlassian.jira.rest.client.api.domain.Issue;
 import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.commons.exceptions.DataException;
+import com.razorthink.pmo.repositories.ProjectUrlsRepository;
+import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.JiraException;
+import net.rcarz.jiraclient.greenhopper.GreenHopperClient;
 import net.rcarz.jiraclient.greenhopper.SprintIssue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -33,21 +36,36 @@ public class SprintReportTimeExceededService {
     @Autowired
     private RemovedIssuesService removedIssuesService;
 
-    private static final Logger logger = LoggerFactory.getLogger(SprintReportMinimalService.class);
+    @Autowired
+    private IncompletedIssuesService incompletedIssuesService;
+
+    @Autowired
+    private LoginService loginService;
+
+    @Autowired
+    private AdvancedLoginService advancedLoginService;
+
+    @Autowired
+    private ProjectUrlsRepository projectUrlsRepository;
+
+    private static final Logger logger = LoggerFactory.getLogger(SprintReportTimeExceededService.class);
 
     /**
      * Generates a minimal report of the sprint specified in the argument including
      * issues removed from sprint and issues added during sprint
      *
      * @param params     sprint name, subproject name and projecturlID
-     * @param restClient It is used to make Rest calls to Jira to fetch sprint details
-     * @param jiraClient It is used to fetch removed issues and issues added during a sprint
      * @return Complete url of the minimal sprint report generated
      * @throws DataException If some internal error occurs
      */
-    public GenericReportResponse getMininmalSprintReportTimeGained(BasicReportRequestParams params, JiraRestClient restClient,
-                                                                   JiraClient jiraClient) {
+    public GenericReportResponse getMininmalSprintReportTimeExceeded(BasicReportRequestParams params) {
         logger.debug("getMininmalSprintReport");
+        ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(params.getProjectUrlId());
+        Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
+        JiraRestClient restClient = loginService.getRestClient(credentials);
+        JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
+        GreenHopperClient gh = advancedLoginService.getGreenHopperClient(jiraClient);
+
         String sprint = params.getSprintName();
         String project = params.getSubProjectName();
         Integer maxResults = 1000;
