@@ -3,9 +3,10 @@ package com.razorthink.pmo.controller.jira;
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.razorthink.pmo.bean.reports.BasicReportRequestParams;
 import com.razorthink.pmo.bean.reports.Credls;
+import com.razorthink.pmo.commons.config.RestControllerRoute;
 import com.razorthink.pmo.controller.AbstractWebappController;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
-import com.razorthink.pmo.service.*;
+import com.razorthink.pmo.service.jira.*;
 import com.razorthink.pmo.tables.ProjectUrls;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.greenhopper.GreenHopperClient;
@@ -17,7 +18,7 @@ import org.springframework.web.bind.annotation.*;
 
 
 @RestController
-@RequestMapping("/rest/jira/projects")
+@RequestMapping( value = RestControllerRoute.Jira.JIRA_BASE_ROUTE )
 public class ReportsController extends AbstractWebappController {
 
     private final Logger logger = LoggerFactory.getLogger(ReportsController.class);
@@ -47,8 +48,8 @@ public class ReportsController extends AbstractWebappController {
     private SprintReportTimeExceededService sprintReportTimeExceededService;
 
 
-    @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/subProject/{subProjectName}/reports/board-summary", method = RequestMethod.GET)
-    public ResponseEntity getAggregateProjectReport(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("subProjectName") String subProjectName) {
+    @RequestMapping(value = RestControllerRoute.Jira.ReportsController.Subroute.GET_AGGREGATE_PROJ_REPORT, method = RequestMethod.GET)
+    public ResponseEntity getAggregateProjectReport(@PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.PROJECT_URL_ID) Integer projectUrlId, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.RAPID_VIEW_NAME) String rapidViewName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SUB_PROJECT_NAME) String subProjectName) {
         try {
             ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
             Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
@@ -67,8 +68,8 @@ public class ReportsController extends AbstractWebappController {
 
 
 
-    @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/sprint/{sprintName}/subProject/{subProjectName}/reports/generic", method = RequestMethod.GET)
-    public ResponseEntity getMinimalSprintReport(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("sprintName") String sprintName, @PathVariable("subProjectName") String subProjectName ) {
+    @RequestMapping(value = RestControllerRoute.Jira.ReportsController.Subroute.GET_SPRINT_MINIMAL_REPORT, method = RequestMethod.GET)
+    public ResponseEntity getMinimalSprintReport(@PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.PROJECT_URL_ID) Integer projectUrlId, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.RAPID_VIEW_NAME) String rapidViewName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SPRINT_NAME) String sprintName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SUB_PROJECT_NAME) String subProjectName ) {
         try {
             ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
             Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
@@ -86,8 +87,8 @@ public class ReportsController extends AbstractWebappController {
         }
     }
 
-    @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/sprints/{sprintName}/subProject/{subProjectName}/reports/sprint-retrospection", method = RequestMethod.GET)
-    public ResponseEntity getSprintRetrospectionReport(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("sprintName") String sprintName, @PathVariable("subProjectName") String subProjectName ) {
+    @RequestMapping(value = RestControllerRoute.Jira.ReportsController.Subroute.GET_SPRINT_RETROSPECTION_REPORT, method = RequestMethod.GET)
+    public ResponseEntity getSprintRetrospectionReport(@PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.PROJECT_URL_ID) Integer projectUrlId, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.RAPID_VIEW_NAME) String rapidViewName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SPRINT_NAME) String sprintName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SUB_PROJECT_NAME) String subProjectName ) {
         try {
             ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
             Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
@@ -104,8 +105,8 @@ public class ReportsController extends AbstractWebappController {
         }
     }
 
-    @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/sprint/{sprintName}/subProject/{subProjectName}/reports/time-gained-sprint-report", method = RequestMethod.GET)
-    public ResponseEntity getMinimalSprintReportTimeGained(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("sprintName") String sprintName, @PathVariable("subProjectName") String subProjectName ) {
+    @RequestMapping(value = RestControllerRoute.Jira.ReportsController.Subroute.GET_TIME_GAINED_SPRINT_REPORT, method = RequestMethod.GET)
+    public ResponseEntity getMinimalSprintReportTimeGained(@PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.PROJECT_URL_ID) Integer projectUrlId, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.RAPID_VIEW_NAME) String rapidViewName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SPRINT_NAME) String sprintName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SUB_PROJECT_NAME) String subProjectName ) {
         try {
             ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
             Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
@@ -123,8 +124,8 @@ public class ReportsController extends AbstractWebappController {
         }
     }
 
-    @RequestMapping(value = "/{projectUrlId}/boards/{rapidViewName}/sprint/{sprintName}/subProject/{subProjectName}/reports/time-exceeded-tickets-sprint-report", method = RequestMethod.GET)
-    public ResponseEntity getMinimalSprintReportTimeExceeded(@PathVariable("projectUrlId") Integer projectUrlId, @PathVariable("rapidViewName") String rapidViewName, @PathVariable("sprintName") String sprintName, @PathVariable("subProjectName") String subProjectName ) {
+    @RequestMapping(value = RestControllerRoute.Jira.ReportsController.Subroute.GET_TIME_EXCEEDED_SPRINT_REPORT, method = RequestMethod.GET)
+    public ResponseEntity getMinimalSprintReportTimeExceeded(@PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.PROJECT_URL_ID) Integer projectUrlId, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.RAPID_VIEW_NAME) String rapidViewName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SPRINT_NAME) String sprintName, @PathVariable(RestControllerRoute.Jira.ReportsController.Subroute.URLParam.SUB_PROJECT_NAME) String subProjectName ) {
         try {
             ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
             Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());

@@ -1,10 +1,12 @@
 package com.razorthink.pmo.controller.jira;
 
 import com.razorthink.pmo.bean.project_urls.RapidView;
+import com.razorthink.pmo.commons.config.RestControllerRoute;
 import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.controller.AbstractWebappController;
-import com.razorthink.pmo.service.ListingBoardsService;
-import com.razorthink.pmo.tables.ProjectUrls;
+import com.razorthink.pmo.service.jira.ListingBoardsService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -15,13 +17,15 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 
 @RestController
-@RequestMapping(value = "/rest/jira/")
+@RequestMapping(value = RestControllerRoute.Jira.JIRA_BASE_ROUTE )
 public class ListingBoardsController extends AbstractWebappController{
+
+    private final Logger logger = LoggerFactory.getLogger(ListingBoardsController.class);
 
     @Autowired
     ListingBoardsService listingBoardsService;
 
-    @RequestMapping(value = "/projects/{projectUrlId}/boards", method = RequestMethod.GET)
+    @RequestMapping(value = RestControllerRoute.Jira.ListingBoardsController.Subroute.GET_BOARDS, method = RequestMethod.GET)
     public ResponseEntity listProjects( @PathVariable Integer projectUrlId ) {
         try {
             List<RapidView> rapidViewList = listingBoardsService.getBoards(projectUrlId);

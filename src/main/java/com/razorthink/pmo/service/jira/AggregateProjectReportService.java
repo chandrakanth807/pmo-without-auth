@@ -1,4 +1,4 @@
-package com.razorthink.pmo.service;
+package com.razorthink.pmo.service.jira;
 
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.domain.Issue;
@@ -6,7 +6,6 @@ import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.utils.ConvertToCSV;
-import com.razorthink.pmo.utils.JSONUtils;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.greenhopper.GreenHopperClient;
 import net.rcarz.jiraclient.greenhopper.RapidView;
@@ -181,7 +180,6 @@ public class AggregateProjectReportService {
                             sprintDetailsList.add(sprintDetails);
                         }
                     }
-                    //aggregateProjectReport.setBacklogCount(rapidView.getBacklogData().getBacklogIssues().size());
                 }
             }
             if (flag) {

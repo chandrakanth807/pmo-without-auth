@@ -1,4 +1,4 @@
-package com.razorthink.pmo.service;
+package com.razorthink.pmo.service.jira;
 
 import com.razorthink.pmo.bean.reports.Credls;
 import com.razorthink.pmo.commons.exceptions.DataException;

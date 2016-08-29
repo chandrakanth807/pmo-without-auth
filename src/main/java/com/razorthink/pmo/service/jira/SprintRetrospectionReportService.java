@@ -1,4 +1,4 @@
-package com.razorthink.pmo.service;
+package com.razorthink.pmo.service.jira;
 
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.domain.Issue;
@@ -10,7 +10,6 @@ import com.razorthink.pmo.bean.reports.IncompletedIssues;
 import com.razorthink.pmo.bean.reports.SprintRetrospection;
 import com.razorthink.pmo.commons.exceptions.DataException;
 import com.razorthink.pmo.utils.ConvertToCSV;
-import com.razorthink.pmo.utils.JSONUtils;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.JiraException;
 import net.rcarz.jiraclient.greenhopper.SprintIssue;

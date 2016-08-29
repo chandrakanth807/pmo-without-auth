@@ -1,4 +1,4 @@
-package com.razorthink.pmo.service;
+package com.razorthink.pmo.service.jira;
 
 
 import com.atlassian.jira.rest.client.api.JiraRestClient;
