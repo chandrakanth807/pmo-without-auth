@@ -6,8 +6,6 @@ import com.atlassian.jira.rest.client.api.domain.Worklog;
 import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.commons.exceptions.DataException;
-import com.razorthink.pmo.repositories.ProjectUrlsRepository;
-import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.JiraException;
@@ -44,13 +42,8 @@ public class SprintRetrospectionReportService {
     private IncompletedIssuesService incompletedIssuesService;
 
     @Autowired
-    private LoginService loginService;
+    private ProjectClients projectClients;
 
-    @Autowired
-    private AdvancedLoginService advancedLoginService;
-
-    @Autowired
-    private ProjectUrlsRepository projectUrlsRepository;
 
     /**
      * Generates a Sprint Retrospection report of the sprint specified in the argument
@@ -62,14 +55,11 @@ public class SprintRetrospectionReportService {
     public GenericReportResponse getSprintRetrospectionReport(BasicReportRequestParams params) {
         logger.debug("getSprintRetrospectionReport");
 
-        ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(params.getProjectUrlId());
-        Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
-        JiraRestClient restClient = loginService.getRestClient(credentials);
-        JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
+        JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(params.getProjectUrlId());
 
         String project = params.getSubProjectName();
         String sprint = params.getSprintName();
-        List<SprintRetrospection> sprintRetrospectionReport = processSprintRetrospectionRelatedIssues(restClient, jiraClient, project, sprint);
+        List<SprintRetrospection> sprintRetrospectionReport = processSprintRetrospectionRelatedIssues(jiraClientsPOJO.getJqlClient(), jiraClientsPOJO.getJiraClient(), project, sprint);
 
         String filename = project + "_" + sprint + "_retrospection_report.csv";
         filename = filename.replace(" ", "_");

@@ -1,15 +1,13 @@
 package com.razorthink.pmo.service.jira;
 
-import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.razorthink.pmo.bean.projecturls.RapidView;
 import com.razorthink.pmo.bean.projecturls.Sprint;
 import com.razorthink.pmo.bean.projecturls.SubProject;
 import com.razorthink.pmo.bean.projecturls.jira.JiraResponseObject;
 import com.razorthink.pmo.bean.projecturls.jira.Value;
-import com.razorthink.pmo.bean.reports.Credls;
+import com.razorthink.pmo.bean.reports.JiraClientsPOJO;
+import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.WebappException;
-import com.razorthink.pmo.repositories.ProjectUrlsRepository;
-import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.JSONUtils;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.RestClient;
@@ -28,25 +26,16 @@ import java.util.List;
 public class ListingBoardsService {
 
     @Autowired
-    private LoginService loginService;
-
-    @Autowired
-    private AdvancedLoginService advancedLoginService;
-
-    @Autowired
-    private ProjectUrlsRepository projectUrlsRepository;
+    ProjectClients projectClients;
 
     public List<RapidView> getBoards( Integer projectUrlId) throws WebappException {
 
             if ( projectUrlId != null) {
-                ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(projectUrlId);
-                Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
-                JiraRestClient restClient = loginService.getRestClient(credentials);
-                JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
-                List<RapidView> rapidViewList = getBoards(jiraClient);
+                JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(projectUrlId);
+                List<RapidView> rapidViewList = getBoards(jiraClientsPOJO.getJiraClient());
                 return rapidViewList;
             } else {
-                throw new WebappException("Please provide ProjectUrlId");
+                throw new WebappException(Constants.Jira.MISSING_PROJECT_URL_ID);
             }
     }
 

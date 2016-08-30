@@ -24,7 +24,7 @@ public class ListingBoardsController extends AbstractWebappController{
     ListingBoardsService listingBoardsService;
 
     @RequestMapping(value = RestControllerRoute.Jira.ListingBoardsController.Subroute.GET_BOARDS, method = RequestMethod.GET)
-    public ResponseEntity listBoards( @PathVariable Integer projectUrlId ) {
+    public ResponseEntity listBoards( @PathVariable(RestControllerRoute.Jira.ListingBoardsController.Subroute.URLParam.PROJECT_URL_ID) Integer projectUrlId ) {
         try {
             List<RapidView> rapidViewList = listingBoardsService.getBoards(projectUrlId);
             return buildResponse(rapidViewList);

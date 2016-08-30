@@ -27,6 +27,7 @@ public class ProjectUrlsController extends AbstractWebappController {
     @RequestMapping(value = RestControllerRoute.Jira.ProjectUrlsController.Subroute.PROJECT_URLS , method = RequestMethod.POST)
     public ResponseEntity insertRecord( @RequestBody ProjectUrls projectUrlDetails) {
         try {
+            validateFields(projectUrlDetails);
             projectUrlDetails = projectUrlsRepository.save(projectUrlDetails);
             AddProjectResponse response = new AddProjectResponse();
             if (projectUrlDetails == null)
@@ -45,6 +46,7 @@ public class ProjectUrlsController extends AbstractWebappController {
         try {
             if(projectUrls.getId()==null)
                 throw new WebappException(Constants.Jira.MISSING_ID_FIELD);
+            validateFields(projectUrls);
             ProjectUrls projectUrls1 = projectUrlsRepository.save(projectUrls);
             if (projectUrls1 == null) {
                 return buildErrorResponse(new WebappException(Constants.Jira.ProjectUrlsController.FAILED_UPDATE_PROJECT_URL));
@@ -79,5 +81,18 @@ public class ProjectUrlsController extends AbstractWebappController {
         {
          return buildErrorResponse(ex);
         }
+    }
+
+    private void validateFields(ProjectUrls projectUrlDetails) throws WebappException {
+        if(projectUrlDetails.getPassword()==null)
+            throw new WebappException(Constants.Jira.MISSING_PASSWORD_FIELD);
+        if(projectUrlDetails.getUrl()==null || projectUrlDetails.getUrl().trim().isEmpty())
+            throw new WebappException(Constants.Jira.MISSING_PROJECT_URL);
+        if(projectUrlDetails.getUserName()==null || projectUrlDetails.getUserName().trim().isEmpty())
+            throw new WebappException(Constants.Jira.MISSING_USERNAME);
+        if(projectUrlDetails.getOwner()==null )
+            throw new WebappException(Constants.Jira.MISSING_OWNER_NAME);
+        if(projectUrlDetails.getProjectName()==null || projectUrlDetails.getProjectName().trim().isEmpty())
+            throw new WebappException(Constants.Jira.MISSING_PROJECT_NAME);
     }
 }

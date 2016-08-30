@@ -2,13 +2,13 @@ package com.razorthink.pmo.service.jira;
 
 import com.atlassian.jira.rest.client.api.JiraRestClient;
 import com.atlassian.jira.rest.client.api.domain.Issue;
+import com.atlassian.jira.rest.client.api.domain.IssueField;
 import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.WebappException;
-import com.razorthink.pmo.repositories.ProjectUrlsRepository;
-import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
+import com.razorthink.pmo.utils.JSONUtils;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.greenhopper.GreenHopperClient;
 import net.rcarz.jiraclient.greenhopper.RapidView;
@@ -40,13 +40,7 @@ public class AggregateProjectReportService {
     private static final Logger logger = LoggerFactory.getLogger(AggregateProjectReportService.class);
 
     @Autowired
-    private LoginService loginService;
-
-    @Autowired
-    private AdvancedLoginService advancedLoginService;
-
-    @Autowired
-    private ProjectUrlsRepository projectUrlsRepository;
+    private ProjectClients projectClients;
 
     /**
      * Generates an Aggregate report of the project specified in the argument
@@ -59,12 +53,7 @@ public class AggregateProjectReportService {
 
         logger.debug("getAggregateProjectReport");
 
-        ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(basicReportRequestParams.getProjectUrlId());
-        Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
-        JiraRestClient restClient = loginService.getRestClient(credentials);
-        JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
-        GreenHopperClient gh = advancedLoginService.getGreenHopperClient(jiraClient);
-
+        JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(basicReportRequestParams.getProjectUrlId());
         String project = basicReportRequestParams.getSubProjectName();
         String rapidViewName = basicReportRequestParams.getRapidViewName();
         if (project == null || rapidViewName == null) {
@@ -89,7 +78,7 @@ public class AggregateProjectReportService {
         Double accuracy = 0.0;
         AggregateProjectReport aggregateProjectReport = new AggregateProjectReport();
         List<SprintDetails> sprintDetailsList = new ArrayList<>();
-        totalTasks = processIssuesAndGetTotalTasks(restClient, jiraClient, gh, project, rapidViewName, estimatedHours, loggedHours, issuesWithoutStory, totalTasks, flag, sprintId, startDt, endDt, aggregateProjectReport, sprintDetailsList);
+        totalTasks = processIssuesAndGetTotalTasks(jiraClientsPOJO.getJqlClient(), jiraClientsPOJO.getJiraClient(), jiraClientsPOJO.getGh(), project, rapidViewName, estimatedHours, loggedHours, issuesWithoutStory, totalTasks, flag, sprintId, startDt, endDt, aggregateProjectReport, sprintDetailsList);
 
         String filename = project + Constants.Jira.AGGREGATE_PROJECT_REPORT_EXTENSION;
         filename = filename.replace(" ", "_");

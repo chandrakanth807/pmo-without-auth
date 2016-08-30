@@ -7,12 +7,9 @@ import com.atlassian.util.concurrent.Promise;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.DataException;
-import com.razorthink.pmo.repositories.ProjectUrlsRepository;
-import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
 import net.rcarz.jiraclient.JiraClient;
 import net.rcarz.jiraclient.JiraException;
-import net.rcarz.jiraclient.greenhopper.GreenHopperClient;
 import net.rcarz.jiraclient.greenhopper.SprintIssue;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,13 +38,7 @@ public class SprintReportTimeExceededService {
     private IncompletedIssuesService incompletedIssuesService;
 
     @Autowired
-    private LoginService loginService;
-
-    @Autowired
-    private AdvancedLoginService advancedLoginService;
-
-    @Autowired
-    private ProjectUrlsRepository projectUrlsRepository;
+    private ProjectClients projectClients;
 
     private static final Logger logger = LoggerFactory.getLogger(SprintReportTimeExceededService.class);
 
@@ -61,11 +52,8 @@ public class SprintReportTimeExceededService {
      */
     public GenericReportResponse getMininmalSprintReportTimeExceeded(BasicReportRequestParams params) {
         logger.debug("getMininmalSprintReport");
-        ProjectUrls projectUrlDetails = projectUrlsRepository.findOne(params.getProjectUrlId());
-        Credls credentials = new Credls(projectUrlDetails.getUserName(), projectUrlDetails.getPassword(), projectUrlDetails.getUrl());
-        JiraRestClient restClient = loginService.getRestClient(credentials);
-        JiraClient jiraClient = advancedLoginService.getJiraClient(credentials);
-        GreenHopperClient gh = advancedLoginService.getGreenHopperClient(jiraClient);
+
+        JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(params.getProjectUrlId());
 
         String sprint = params.getSprintName();
         String project = params.getSubProjectName();
@@ -79,7 +67,7 @@ public class SprintReportTimeExceededService {
         }
         List<SprintReportTimeExceeded> sprintReportList = new ArrayList<>();
         SprintReportTimeExceeded sprintReport;
-        Iterable<Issue> retrievedIssue = restClient.getSearchClient()
+        Iterable<Issue> retrievedIssue = jiraClientsPOJO.getJqlClient().getSearchClient()
                 .searchJql(" sprint = '" + sprint + "' AND project = '" + project + "'", 1000, 0, null).claim()
                 .getIssues();
         Pattern pattern = Pattern.compile("\\[\".*\\[id=(.*),rapidViewId=(.*),.*,name=(.*),startDate=(.*),.*\\]");
@@ -89,10 +77,10 @@ public class SprintReportTimeExceededService {
             sprintId = Integer.parseInt(matcher.group(1));
             rvId = Integer.parseInt(matcher.group(2));
         }
-        processRetrievedIssues(restClient, sprint, project, maxResults, startAt, sprintReportList, retrievedIssue);
+        processRetrievedIssues(jiraClientsPOJO.getJqlClient(), sprint, project, maxResults, startAt, sprintReportList, retrievedIssue);
         String headerString = "Removed Issues";
         appendHeading(sprintReportList, headerString);
-        processRemovedIssues(restClient, jiraClient, rvId, sprintId, sprintReportList);
+        processRemovedIssues(jiraClientsPOJO.getJqlClient(), jiraClientsPOJO.getJiraClient(), rvId, sprintId, sprintReportList);
         String filename = project + "_" + sprint + "_minimal_report_time_exceeded.csv";
         filename = filename.replace(" ", "_");
         ConvertToCSV exportToCSV = new ConvertToCSV();
