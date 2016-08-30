@@ -43,6 +43,8 @@ public class ProjectUrlsController extends AbstractWebappController {
     @RequestMapping(value = RestControllerRoute.Jira.ProjectUrlsController.Subroute.PROJECT_URLS, method = RequestMethod.PUT)
     public ResponseEntity updateRecord(@RequestBody ProjectUrls projectUrls) {
         try {
+            if(projectUrls.getId()==null)
+                throw new WebappException(Constants.Jira.MISSING_ID_FIELD);
             ProjectUrls projectUrls1 = projectUrlsRepository.save(projectUrls);
             if (projectUrls1 == null) {
                 return buildErrorResponse(new WebappException(Constants.Jira.ProjectUrlsController.FAILED_UPDATE_PROJECT_URL));

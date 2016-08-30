@@ -1,6 +1,7 @@
 package com.razorthink.pmo.tables;
 
 import javax.persistence.*;
+import javax.validation.constraints.NotNull;
 import java.io.Serializable;
 
 
@@ -16,19 +17,24 @@ public class ProjectUrls implements Serializable {
     private Integer id;
 
     @Column(name = "username", nullable = false, length = 90)
+    @NotNull
     private String userName;
 
     @Column(name = "password", nullable = false, length = 45)
+    @NotNull
     private String password;
 
 
     @Column(name = "project_url", nullable = false, length = 450)
+    @NotNull
     private String url;
 
     @Column(name = "project_name", nullable = false, length = 45)
+    @NotNull
     private String projectName;
 
     @Column(name = "created_by", nullable = false, length = 90)
+    @NotNull
     private String owner;
 
     public static long getSerialVersionUID() {

@@ -2,7 +2,6 @@ package com.razorthink.pmo.controller.jira;
 
 import com.razorthink.pmo.bean.projecturls.RapidView;
 import com.razorthink.pmo.commons.config.RestControllerRoute;
-import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.controller.AbstractWebappController;
 import com.razorthink.pmo.service.jira.ListingBoardsService;
 import org.slf4j.Logger;
@@ -13,7 +12,6 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
-
 import java.util.List;
 
 @RestController
@@ -26,11 +24,11 @@ public class ListingBoardsController extends AbstractWebappController{
     ListingBoardsService listingBoardsService;
 
     @RequestMapping(value = RestControllerRoute.Jira.ListingBoardsController.Subroute.GET_BOARDS, method = RequestMethod.GET)
-    public ResponseEntity listProjects( @PathVariable Integer projectUrlId ) {
+    public ResponseEntity listBoards( @PathVariable Integer projectUrlId ) {
         try {
             List<RapidView> rapidViewList = listingBoardsService.getBoards(projectUrlId);
             return buildResponse(rapidViewList);
-        } catch (WebappException e) {
+        } catch (Exception e) {
             return buildErrorResponse(e);
         }
     }

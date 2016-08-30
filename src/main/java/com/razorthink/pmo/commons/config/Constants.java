@@ -11,6 +11,7 @@ public final class Constants {
         public static final String AGGREGATE_PROJECT_REPORT_EXTENSION = "_aggregate_report.csv";
         public static final String CSV_DOWNLOAD_DIRECTORY_PATH_PROPERTY = "csv.filename";
         public static final String DOWNLOAD_LINK_BASE_PATH_PROPERTY = "csv.aliaspath";
+        public static final String MISSING_ID_FIELD = "id.field.missing";
 
         public final class ProjectUrlsController {
             private ProjectUrlsController() {
