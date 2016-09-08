@@ -8,6 +8,7 @@ import com.razorthink.pmo.bean.reports.jira.greenhopper.IssueGreenHopperPOJO;
 import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.DataException;
 
+import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
 import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
@@ -52,7 +53,7 @@ public class SprintRetrospectionReportService {
      * @return Complete url of the sprint Retrospection report generated
      * @throws DataException If some internal error occurs
      */
-    public GenericReportResponse getSprintRetrospectionReport(BasicReportRequestParams params) {
+    public GenericReportResponse getSprintRetrospectionReport(BasicReportRequestParams params) throws WebappException {
         logger.debug("getSprintRetrospectionReport");
 
         ProjectUrls projectUrl = projectUrlsRepository.findOne(params.getProjectUrlId());
@@ -79,7 +80,7 @@ public class SprintRetrospectionReportService {
         return response;
     }
 
-    private List<SprintRetrospection> processSprintRetrospectionRelatedIssues(ProjectUrls projectUrl, String project, String sprint) {
+    private List<SprintRetrospection> processSprintRetrospectionRelatedIssues(ProjectUrls projectUrl, String project, String sprint) throws WebappException {
         int rvId = 0;
         int sprintId = 0;
         DateTime startDt = null;
@@ -99,14 +100,12 @@ public class SprintRetrospectionReportService {
         List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint
                 + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee", 1000, 0);
 
-        /*Iterable<Issue> retrievedIssue = restClient.getSearchClient().searchJql(" sprint = '" + sprint
-                + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee", 1000, 0, null)
-                .claim().getIssues();*/
+        String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl," sprint = '" + sprint
+                        + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee");
         Pattern pattern = Pattern.compile(
                 "\\[\".*\\[id=(.*),rapidViewId=(.*),.*,name=(.*),goal=.*,startDate=(.*),endDate=(.*),completeDate=(.*),.*\\]");
 
-        Matcher matcher = pattern.matcher(
-                "[\"" + retrievedIssue.get(0).getFields().getCustomfield_10003().get(0) + "\"]");
+        Matcher matcher = pattern.matcher(sprintString);
         while (matcher.find()) {
             if (matcher.group(3).equals(sprint)) {
                 timezone = matcher.group(4).substring(23);

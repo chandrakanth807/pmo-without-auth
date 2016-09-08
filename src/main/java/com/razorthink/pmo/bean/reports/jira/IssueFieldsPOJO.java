@@ -21,7 +21,6 @@ public class IssueFieldsPOJO {
     private PersonPOJO creator;
     private List<Object> subtasks;
     private PersonPOJO reporter;
-    private List<String> customfield_10003;
 
 
     public IssueTypePOJO getIssuetype() {
@@ -144,11 +143,4 @@ public class IssueFieldsPOJO {
         this.reporter = reporter;
     }
 
-    public List<String> getCustomfield_10003() {
-        return customfield_10003;
-    }
-
-    public void setCustomfield_10003(List<String> customfield_10003) {
-        this.customfield_10003 = customfield_10003;
-    }
 }

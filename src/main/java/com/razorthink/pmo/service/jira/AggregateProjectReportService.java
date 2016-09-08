@@ -135,12 +135,13 @@ public class AggregateProjectReportService {
                         List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl,jqlQuery,1000,0);
 
                         if (retrievedIssue.iterator().hasNext()) {
+                            String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl, jqlQuery);
                             Pattern pattern = Pattern.compile(
                                     "[\\[,]\".*?\\[.*?=(\\d+),.*?=(\\d+),.*?name=(.*?),.*?=.*?,.*?=(.*?),.*?=(.*?),.*?=(.*?),.*?]\"");
 
-                            Matcher matcher = pattern.matcher(
-                                    "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");
-
+                            /*Matcher matcher = pattern.matcher(
+                                    "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");*/
+                            Matcher matcher = pattern.matcher(sprintString);
                             while (matcher.find()) {
                                 logger.info("matched pattern is " + matcher.group());
                                 if (matcher.group(3).equals(sprint.getSprintName())) {

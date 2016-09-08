@@ -7,6 +7,7 @@ import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.IssueGreenHopperPOJO;
 import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.DataException;
+import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
 import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
@@ -45,7 +46,7 @@ public class SprintReportMinimalService {
      * @return Complete url of the minimal sprint report generated
      * @throws DataException If some internal error occurs
      */
-    public GenericReportResponse getMininmalSprintReport(BasicReportRequestParams params) {
+    public GenericReportResponse getMininmalSprintReport(BasicReportRequestParams params) throws WebappException {
         logger.debug("getMininmalSprintReport");
 
         ProjectUrls projectUrl = projectUrlsRepository.findOne(params.getProjectUrlId());
@@ -62,12 +63,10 @@ public class SprintReportMinimalService {
         List<SprintReport> sprintReportList = new ArrayList<>();
         SprintReport sprintReport;
         List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint + "' AND project = '" + project + "'",1000,0);
+        String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl, " sprint = '" + sprint + "' AND project = '" + project + "'");
         Pattern pattern = Pattern.compile("\\[\".*\\[id=(.*),rapidViewId=(.*),.*,name=(.*),startDate=(.*),.*\\]");
-        /*Matcher matcher = pattern
-                .matcher(retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());*/
 
-        Matcher matcher = pattern.matcher(
-                "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");
+        Matcher matcher = pattern.matcher(sprintString);
 
         if (matcher.find()) {
             sprintId = Integer.parseInt(matcher.group(1));
