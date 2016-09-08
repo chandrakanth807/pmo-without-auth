@@ -1,12 +1,14 @@
 package com.razorthink.pmo.bean.projecturls;
 
-/**
- * Created by root on 24/8/16.
- */
+import org.joda.time.DateTime;
+
 public class Sprint {
     private Integer sprintId;
     private String sprintName;
     private String sprintState;
+    private DateTime startDate;
+    private DateTime endDate;
+    private DateTime completeDate;
 
     public Integer getSprintId() {
         return sprintId;
@@ -30,5 +32,29 @@ public class Sprint {
 
     public void setSprintState(String sprintState) {
         this.sprintState = sprintState;
+    }
+
+    public DateTime getStartDate() {
+        return startDate;
+    }
+
+    public void setStartDate(DateTime startDate) {
+        this.startDate = startDate;
+    }
+
+    public DateTime getEndDate() {
+        return endDate;
+    }
+
+    public void setEndDate(DateTime endDate) {
+        this.endDate = endDate;
+    }
+
+    public DateTime getCompleteDate() {
+        return completeDate;
+    }
+
+    public void setCompleteDate(DateTime completeDate) {
+        this.completeDate = completeDate;
     }
 }

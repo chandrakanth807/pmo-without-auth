@@ -1,32 +1,26 @@
 package com.razorthink.pmo.utils;
 
-
 import com.google.common.base.Joiner;
 import com.razorthink.pmo.bean.projecturls.RapidView;
 import com.razorthink.pmo.bean.projecturls.Sprint;
+import com.razorthink.pmo.bean.projecturls.SprintAndRapidViewId;
 import com.razorthink.pmo.bean.projecturls.SubProject;
 import com.razorthink.pmo.bean.projecturls.jira.*;
 import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
 import com.razorthink.pmo.bean.reports.jira.IssuesSearchResult;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.SearchResult;
-import com.razorthink.pmo.bean.reports.jira.sprintdetailscase.IssuesSearchResult1;
 import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.tables.ProjectUrls;
 import com.sun.jersey.api.client.Client;
 import com.sun.jersey.api.client.ClientResponse;
 import com.sun.jersey.api.client.WebResource;
 import org.apache.commons.codec.binary.Base64;
-import org.json.simple.JSONArray;
-import org.json.simple.JSONObject;
-import org.json.simple.parser.JSONParser;
-import org.json.simple.parser.ParseException;
-
+import org.joda.time.DateTime;
 import javax.ws.rs.core.UriBuilder;
 import java.net.URI;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 public class JiraRestUtil {
 
@@ -56,39 +50,6 @@ public class JiraRestUtil {
         }
 
         return resp.getEntity(String.class);
-    }
-
-    public static String findSprintDetailsWithJQLQuery(ProjectUrls projectUrl, String jqlQuery) throws WebappException {
-        List<String> expandos = new ArrayList<>();
-        expandos.add("schema");
-        expandos.add("names");
-        /*String urlString = projectUrl.getUrl();
-        urlString = urlString.trim();
-        if(urlString.endsWith("/"));
-        {
-            urlString = urlString.substring(0,urlString.length()-1);
-        }*/
-        String restCall = "/rest/api/latest/search";
-        String customUrlString = appendProjectURLAndRestCall(projectUrl.getUrl(),restCall);
-        UriBuilder uriBuilder = UriBuilder.fromUri(customUrlString).queryParam("jql", new Object[]{jqlQuery}).queryParam("expand", new Object[]{Joiner.on(",").join(expandos)})
-                .queryParam("maxResults", new Object[]{new Integer(1)})
-                .queryParam("startAt", new Object[]{new Integer(0)});
-        URI uri = uriBuilder.build(new Object[0]);
-        String jsonResult = httpGetMethodWithBasicAuth(uri, projectUrl.getUserName(), projectUrl.getPassword());
-        IssuesSearchResult1 searchResult = JSONUtils.parse(jsonResult, IssuesSearchResult1.class);
-        String sprintFieldName = findSprintFieldName(searchResult.getNames());
-        JSONParser jsonParser = new JSONParser();
-        try {
-            JSONObject jsonObject = (JSONObject) jsonParser.parse(jsonResult);
-            JSONArray issuesArray = (JSONArray) jsonObject.get("issues");
-            JSONObject issueObject = (JSONObject) issuesArray.iterator().next();
-            JSONObject fieldsObject = (JSONObject) issueObject.get("fields");
-            JSONArray sprintField = (JSONArray) fieldsObject.get(sprintFieldName);
-            return sprintField.toString();
-        } catch (ParseException e) {
-            e.printStackTrace();
-        }
-        throw new WebappException("Sprint details not found - error");
     }
 
     public static List<IssuePOJO> findIssuesWithJQLQuery(ProjectUrls projectUrl, String jqlQuery, int maxResults, int startAt) {
@@ -170,6 +131,9 @@ public class JiraRestUtil {
                 sprint.setSprintId(sprintValue.getId());
                 sprint.setSprintName(sprintValue.getName());
                 sprint.setSprintState(sprintValue.getState());
+                sprint.setCompleteDate(new DateTime(sprintValue.getCompleteDate()));
+                sprint.setEndDate(new DateTime(sprintValue.getEndDate()));
+                sprint.setStartDate(new DateTime(sprintValue.getStartDate()));
                 sprintList.add(sprint);
             }
             rapidView.setSprintList(sprintList);
@@ -208,13 +172,23 @@ public class JiraRestUtil {
         return projectUrl;
     }
 
-    private static String findSprintFieldName(Map<String, String> names) throws WebappException {
-
-        for(Map.Entry<String,String> entry : names.entrySet())
+    public static SprintAndRapidViewId getSprintDetails(String rapidViewName, String sprintName, List<RapidView> rapidViewsList) throws WebappException {
+        for(RapidView rapidView : rapidViewsList)
         {
-            if(entry.getValue().equals("Sprint"))
-                return entry.getKey();
+            if(rapidView.getRapidViewName().trim().equals(rapidViewName))
+            {
+                for(Sprint sprint : rapidView.getSprintList())
+                {
+                    if(sprint.getSprintName().trim().equals(sprintName))
+                    {
+                        SprintAndRapidViewId returnObj = new SprintAndRapidViewId();
+                        returnObj.setSprint(sprint);
+                        returnObj.setRapidViewId(rapidView.getRapidViewId());
+                        return returnObj;
+                    }
+                }
+            }
         }
-        throw new WebappException("Sprint field not found");
+        throw new WebappException("sprint details not found; sprint name: "+sprintName+" ; rapidViewName: "+rapidViewName);
     }
 }

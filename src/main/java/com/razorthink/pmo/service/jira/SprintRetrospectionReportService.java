@@ -1,38 +1,31 @@
 package com.razorthink.pmo.service.jira;
 
-
+import com.razorthink.pmo.bean.projecturls.RapidView;
+import com.razorthink.pmo.bean.projecturls.SprintAndRapidViewId;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.IssueGreenHopperPOJO;
 import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.DataException;
-
 import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
 import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
 import com.razorthink.pmo.utils.JiraRestUtil;
-
-
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeConstants;
-import org.joda.time.DateTimeZone;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.text.DecimalFormat;
-import java.time.ZoneId;
 import java.util.*;
-import java.util.concurrent.ExecutionException;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
+
 
 @Service
 public class SprintRetrospectionReportService {
@@ -61,7 +54,7 @@ public class SprintRetrospectionReportService {
 
         String project = params.getSubProjectName();
         String sprint = params.getSprintName();
-        List<SprintRetrospection> sprintRetrospectionReport = processSprintRetrospectionRelatedIssues(projectUrl, project, sprint);
+        List<SprintRetrospection> sprintRetrospectionReport = processSprintRetrospectionRelatedIssues(projectUrl, project, sprint, params.getRapidViewName());
 
         String filename = project + "_" + sprint + "_retrospection_report.csv";
         filename = filename.replace(" ", "_");
@@ -80,13 +73,12 @@ public class SprintRetrospectionReportService {
         return response;
     }
 
-    private List<SprintRetrospection> processSprintRetrospectionRelatedIssues(ProjectUrls projectUrl, String project, String sprint) throws WebappException {
+    private List<SprintRetrospection> processSprintRetrospectionRelatedIssues(ProjectUrls projectUrl, String project, String sprint, String rapidViewName) throws WebappException {
         int rvId = 0;
         int sprintId = 0;
         DateTime startDt = null;
         DateTime endDt = null;
         DateTime completeDate = null;
-        String timezone = null;
 
         List<SprintRetrospection> sprintRetrospectionReport = new ArrayList<>();
         List<String> incompleteIssueKeys = new ArrayList<>();
@@ -100,7 +92,16 @@ public class SprintRetrospectionReportService {
         List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint
                 + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee", 1000, 0);
 
-        String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl," sprint = '" + sprint
+        List<RapidView> rapidviewsLIst = JiraRestUtil.getBoards(projectUrl);
+
+        SprintAndRapidViewId sprintAndRapidViewIdDetails = JiraRestUtil.getSprintDetails(rapidViewName, sprint, rapidviewsLIst);
+        startDt = sprintAndRapidViewIdDetails.getSprint().getStartDate();
+        endDt = sprintAndRapidViewIdDetails.getSprint().getEndDate();
+        completeDate = sprintAndRapidViewIdDetails.getSprint().getCompleteDate();
+        sprintId = sprintAndRapidViewIdDetails.getSprint().getSprintId();
+        rvId = sprintAndRapidViewIdDetails.getRapidViewId();
+
+        /*String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl," sprint = '" + sprint
                         + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee");
         Pattern pattern = Pattern.compile(
                 "\\[\".*\\[id=(.*),rapidViewId=(.*),.*,name=(.*),goal=.*,startDate=(.*),endDate=(.*),completeDate=(.*),.*\\]");
@@ -118,9 +119,9 @@ public class SprintRetrospectionReportService {
                 sprintId = Integer.parseInt(matcher.group(1));
                 rvId = Integer.parseInt(matcher.group(2));
             }
-        }
+        }*/
         processIncompletedIssues(projectUrl, rvId, sprintId, incompleteIssueKeys);
-        processRetrievedIssues(projectUrl, project, sprint, startDt, endDt, completeDate, timezone, sprintRetrospectionReport, incompleteIssueKeys, assignee, retrievedIssue);
+        processRetrievedIssues(projectUrl, project, sprint, startDt, endDt, completeDate, sprintRetrospectionReport, incompleteIssueKeys, assignee, retrievedIssue);
         return sprintRetrospectionReport;
     }
 
@@ -132,13 +133,13 @@ public class SprintRetrospectionReportService {
         }
     }
 
-    private void processRetrievedIssues(ProjectUrls projectUrl, String project, String sprint, DateTime startDt, DateTime endDt, DateTime completeDate, String timezone, List<SprintRetrospection> sprintRetrospectionReport, List<String> incompleteIssueKeys, Set<String> assignee, List<IssuePOJO> retrievedIssue) {
+    private void processRetrievedIssues(ProjectUrls projectUrl, String project, String sprint, DateTime startDt, DateTime endDt, DateTime completeDate, List<SprintRetrospection> sprintRetrospectionReport, List<String> incompleteIssueKeys, Set<String> assignee, List<IssuePOJO> retrievedIssue) {
 
         int startAt = 0;
         int maxResults = 1000;
 
         Map<String, SprintRetrospection> assigneeSpecificDetailsMap = new HashMap<>();
-        double availableHours = calculateAvailableHours(startDt, endDt, timezone);
+        double availableHours = calculateAvailableHours(startDt, endDt);
         while (retrievedIssue != null && retrievedIssue.size() != 0) {
             for (IssuePOJO issueValue : retrievedIssue) {
 
@@ -200,9 +201,10 @@ public class SprintRetrospectionReportService {
 
     }
 
-    private double calculateAvailableHours(DateTime startDt, DateTime endDt, String timezone) {
+    private double calculateAvailableHours(DateTime startDt, DateTime endDt) {
         double availableHours = 0d;
-        DateTime tempDate = new DateTime(startDt.getMillis(), DateTimeZone.forID(ZoneId.of(timezone).toString()));
+        //DateTime tempDate = new DateTime(startDt.getMillis(), DateTimeZone.forID(ZoneId.of(timezone).toString()));
+        DateTime tempDate = new DateTime(startDt);
         while (tempDate.compareTo(endDt) <= 0) {
             if (tempDate.getDayOfWeek() != DateTimeConstants.SATURDAY
                     && tempDate.getDayOfWeek() != DateTimeConstants.SUNDAY) {

@@ -2,6 +2,7 @@ package com.razorthink.pmo.service.jira;
 
 import com.razorthink.pmo.bean.projecturls.RapidView;
 import com.razorthink.pmo.bean.projecturls.Sprint;
+import com.razorthink.pmo.bean.projecturls.SprintAndRapidViewId;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
@@ -52,6 +53,7 @@ public class AggregateProjectReportService {
         ProjectUrls projectUrl = projectUrlsRepository.findOne(basicReportRequestParams.getProjectUrlId());
         String project = basicReportRequestParams.getSubProjectName();
         String rapidViewName = basicReportRequestParams.getRapidViewName();
+
         if (project == null || rapidViewName == null) {
             logger.error("Error: Missing required paramaters");
             throw new WebappException(Constants.Jira.MISSING_REQUIRED_PARAMETERS);
@@ -135,12 +137,13 @@ public class AggregateProjectReportService {
                         List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl,jqlQuery,1000,0);
 
                         if (retrievedIssue.iterator().hasNext()) {
-                            String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl, jqlQuery);
+
+                            /*String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl, jqlQuery);
                             Pattern pattern = Pattern.compile(
                                     "[\\[,]\".*?\\[.*?=(\\d+),.*?=(\\d+),.*?name=(.*?),.*?=.*?,.*?=(.*?),.*?=(.*?),.*?=(.*?),.*?]\"");
 
-                            /*Matcher matcher = pattern.matcher(
-                                    "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");*/
+                            *//*Matcher matcher = pattern.matcher(
+                                    "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");*//*
                             Matcher matcher = pattern.matcher(sprintString);
                             while (matcher.find()) {
                                 logger.info("matched pattern is " + matcher.group());
@@ -152,7 +155,13 @@ public class AggregateProjectReportService {
                                     }
                                     sprintId = Integer.parseInt(matcher.group(1));
                                 }
-                            }
+                            }*/
+                            SprintAndRapidViewId sprintAndRapidViewIdDetails = JiraRestUtil.getSprintDetails(rapidViewName,sprint.getSprintName(), rapidviewsLIst);
+                            startDt = sprintAndRapidViewIdDetails.getSprint().getStartDate();
+                            endDt = sprintAndRapidViewIdDetails.getSprint().getEndDate();
+                            completeDate = sprintAndRapidViewIdDetails.getSprint().getCompleteDate();
+                            sprintId = sprintAndRapidViewIdDetails.getSprint().getSprintId();
+
                             sprintDetails.setStartDate(startDt.toString("MM/dd/yyyy"));
                             sprintDetails.setEndDate(endDt.toString("MM/dd/yyyy"));
                             if (completeDate != null) {

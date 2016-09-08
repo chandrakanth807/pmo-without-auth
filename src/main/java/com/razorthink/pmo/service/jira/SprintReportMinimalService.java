@@ -1,6 +1,8 @@
 package com.razorthink.pmo.service.jira;
 
 
+import com.razorthink.pmo.bean.projecturls.RapidView;
+import com.razorthink.pmo.bean.projecturls.SprintAndRapidViewId;
 import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
@@ -11,7 +13,6 @@ import com.razorthink.pmo.commons.exceptions.WebappException;
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
 import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
-
 import com.razorthink.pmo.utils.JiraRestUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,13 +20,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
-
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.text.DecimalFormat;
 import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 @Service
 public class SprintReportMinimalService {
@@ -63,7 +61,11 @@ public class SprintReportMinimalService {
         List<SprintReport> sprintReportList = new ArrayList<>();
         SprintReport sprintReport;
         List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint + "' AND project = '" + project + "'",1000,0);
-        String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl, " sprint = '" + sprint + "' AND project = '" + project + "'");
+        List<RapidView> rapidviewsLIst = JiraRestUtil.getBoards(projectUrl);
+        SprintAndRapidViewId sprintAndRapidViewIdDetails = JiraRestUtil.getSprintDetails(params.getRapidViewName(),sprint,rapidviewsLIst);
+        sprintId = sprintAndRapidViewIdDetails.getSprint().getSprintId();
+        rvId = sprintAndRapidViewIdDetails.getRapidViewId();
+        /*String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl, " sprint = '" + sprint + "' AND project = '" + project + "'");
         Pattern pattern = Pattern.compile("\\[\".*\\[id=(.*),rapidViewId=(.*),.*,name=(.*),startDate=(.*),.*\\]");
 
         Matcher matcher = pattern.matcher(sprintString);
@@ -71,7 +73,7 @@ public class SprintReportMinimalService {
         if (matcher.find()) {
             sprintId = Integer.parseInt(matcher.group(1));
             rvId = Integer.parseInt(matcher.group(2));
-        }
+        }*/
         Contents contents = JiraRestUtil.getRemovedAndIncompleteIssues(projectUrl,rvId,sprintId);
         Set<String> addedIssuesSet = contents.getIssueKeysAddedDuringSprint().keySet();
         Map<String, IssuePOJO> issuesAddedMap = processRetrievedIssuesAndReturnIssuesAddedDetails(projectUrl , sprint, project, maxResults, sprintReportList, retrievedIssue, addedIssuesSet);
