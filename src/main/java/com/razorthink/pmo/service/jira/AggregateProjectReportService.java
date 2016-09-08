@@ -1,18 +1,16 @@
 package com.razorthink.pmo.service.jira;
 
-import com.atlassian.jira.rest.client.api.JiraRestClient;
-import com.atlassian.jira.rest.client.api.domain.Issue;
-import com.atlassian.jira.rest.client.api.domain.IssueField;
-import com.atlassian.util.concurrent.Promise;
+import com.razorthink.pmo.bean.projecturls.RapidView;
+import com.razorthink.pmo.bean.projecturls.Sprint;
 import com.razorthink.pmo.bean.reports.*;
+import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
+import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
 import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.WebappException;
+import com.razorthink.pmo.repositories.ProjectUrlsRepository;
+import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
-import com.razorthink.pmo.utils.JSONUtils;
-import net.rcarz.jiraclient.JiraClient;
-import net.rcarz.jiraclient.greenhopper.GreenHopperClient;
-import net.rcarz.jiraclient.greenhopper.RapidView;
-import net.rcarz.jiraclient.greenhopper.Sprint;
+import com.razorthink.pmo.utils.JiraRestUtil;
 import org.joda.time.DateTime;
 import org.joda.time.Days;
 import org.slf4j.Logger;
@@ -20,7 +18,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
-
 import java.io.FileWriter;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -34,13 +31,10 @@ public class AggregateProjectReportService {
     @Autowired
     private Environment env;
 
-    @Autowired
-    private RemovedIssuesService removedIssuesService;
-
     private static final Logger logger = LoggerFactory.getLogger(AggregateProjectReportService.class);
 
     @Autowired
-    private ProjectClients projectClients;
+    private ProjectUrlsRepository projectUrlsRepository;
 
     /**
      * Generates an Aggregate report of the project specified in the argument
@@ -53,32 +47,17 @@ public class AggregateProjectReportService {
 
         logger.debug("getAggregateProjectReport");
 
-        JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(basicReportRequestParams.getProjectUrlId());
+        ProjectUrls projectUrl = projectUrlsRepository.findOne(basicReportRequestParams.getProjectUrlId());
         String project = basicReportRequestParams.getSubProjectName();
         String rapidViewName = basicReportRequestParams.getRapidViewName();
         if (project == null || rapidViewName == null) {
             logger.error("Error: Missing required paramaters");
             throw new WebappException(Constants.Jira.MISSING_REQUIRED_PARAMETERS);
         }
-        Integer estimatedHours = 0;
-        Integer loggedHours = 0;
-        Integer noEstimatesCount = 0;
-        Integer totalEstimates = 0;
-        Integer noDescriptionCount = 0;
-        Integer issuesWithoutStory = 0;
-        Integer totalTasks = 0;
-        Integer startAt = 0;
-        Integer maxValue = 1000;
-        Boolean flag = true;
-        int rvId = 0;
-        int sprintId = 0;
-        DateTime startDt = null;
-        DateTime endDt = null;
-        DateTime completeDate = null;
-        Double accuracy = 0.0;
+
         AggregateProjectReport aggregateProjectReport = new AggregateProjectReport();
         List<SprintDetails> sprintDetailsList = new ArrayList<>();
-        totalTasks = processIssuesAndGetTotalTasks(jiraClientsPOJO.getJqlClient(), jiraClientsPOJO.getJiraClient(), jiraClientsPOJO.getGh(), project, rapidViewName, estimatedHours, loggedHours, issuesWithoutStory, totalTasks, flag, sprintId, startDt, endDt, aggregateProjectReport, sprintDetailsList);
+        Integer totalTasks = processIssuesAndGetTotalTasks( projectUrl, project, rapidViewName, aggregateProjectReport, sprintDetailsList);
 
         String filename = project + Constants.Jira.AGGREGATE_PROJECT_REPORT_EXTENSION;
         filename = filename.replace(" ", "_");
@@ -109,7 +88,7 @@ public class AggregateProjectReportService {
         return response;
     }
 
-    private Integer processIssuesAndGetTotalTasks(JiraRestClient restClient, JiraClient jiraClient, GreenHopperClient gh, String project, String rapidViewName, Integer estimatedHours, Integer loggedHours, Integer issuesWithoutStory, Integer totalTasks, Boolean flag, int sprintId, DateTime startDt, DateTime endDt, AggregateProjectReport aggregateProjectReport, List<SprintDetails> sprintDetailsList) throws WebappException {
+    private Integer processIssuesAndGetTotalTasks(ProjectUrls projectUrl, String project, String rapidViewName, AggregateProjectReport aggregateProjectReport, List<SprintDetails> sprintDetailsList) throws WebappException {
         int rvId;
         DateTime completeDate;
         Integer totalEstimates;
@@ -118,13 +97,22 @@ public class AggregateProjectReportService {
         Integer startAt;
         Integer maxValue;
         Double accuracy;
+        Double estimatedHours = 0d;
+        Double loggedHours = 0d;
+        Integer issuesWithoutStory = 0;
+        Boolean flag = true;
+        int sprintId = 0;
+        DateTime startDt = null;
+        DateTime endDt = null;
+        int totalTasks = 0;
         try {
-            List<RapidView> rapidviewsLIst = gh.getRapidViews();
+            List<RapidView> rapidviewsLIst = JiraRestUtil.getBoards(projectUrl);
+
             for (RapidView rapidView : rapidviewsLIst) {
-                if (rapidView.getName().equals(rapidViewName)) {
+                if (rapidView.getRapidViewName().equals(rapidViewName)) {
                     flag = false;
-                    rvId = rapidView.getId();
-                    List<Sprint> sprintList = rapidView.getSprints();
+                    rvId = rapidView.getRapidViewId();
+                    List<Sprint> sprintList = rapidView.getSprintList();
                     if (sprintList.size() > 0) {
                         aggregateProjectReport.setIs_Sprint_followed(true);
                     } else {
@@ -132,22 +120,22 @@ public class AggregateProjectReportService {
                     }
                     for (Sprint sprint : sprintList) {
                         SprintDetails sprintDetails = new SprintDetails();
-                        sprintDetails.setName(sprint.getName());
+                        sprintDetails.setName(sprint.getSprintName());
                         completeDate = null;
-                        Iterable<Issue> retrievedIssue = restClient.getSearchClient()
-                                .searchJql(" sprint = " + sprint.getId() + " AND project = '" + project + "'", 1000, 0,
-                                        null)
-                                .claim().getIssues();
+
+                        String jqlQuery = " sprint = " + sprint.getSprintId() + " AND project = '" + project + "'";
+                        List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl,jqlQuery,1000,0);
+
                         if (retrievedIssue.iterator().hasNext()) {
                             Pattern pattern = Pattern.compile(
                                     "[\\[,]\".*?\\[.*?=(\\d+),.*?=(\\d+),.*?name=(.*?),.*?=.*?,.*?=(.*?),.*?=(.*?),.*?=(.*?),.*?]\"");
+
                             Matcher matcher = pattern.matcher(
-                                    retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());
-                            logger.info(
-                                    retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());
+                                    "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");
+
                             while (matcher.find()) {
                                 logger.info("matched pattern is " + matcher.group());
-                                if (matcher.group(3).equals(sprint.getName())) {
+                                if (matcher.group(3).equals(sprint.getSprintName())) {
                                     startDt = new DateTime(matcher.group(4));
                                     endDt = new DateTime(matcher.group(5));
                                     if (!matcher.group(6).equals("<null>")) {
@@ -177,40 +165,36 @@ public class AggregateProjectReportService {
                             startAt = 0;
                             maxValue = 1000;
                             while (retrievedIssue.iterator().hasNext()) {
-                                for (Issue issueValue : retrievedIssue) {
+                                for (IssuePOJO issue : retrievedIssue) {
                                     totalEstimates++;
-                                    Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
-                                    if (issue.get().getIssueType().getName().equals("Task")) {
+                                    //Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
+                                    if (issue.getFields().getIssuetype().getName().equalsIgnoreCase("Task")) {
                                         totalTasks++;
-                                        if (!issue.get().getIssueLinks().iterator().hasNext()) {
+                                        if (issue.getFields().getIssuelinks().isEmpty()) {
                                             issuesWithoutStory++;
                                         }
                                     }
-                                    if (issue.get().getTimeTracking() != null) {
-                                        if (issue.get().getTimeTracking().getOriginalEstimateMinutes() != null) {
-                                            estimatedHours += issue.get().getTimeTracking()
-                                                    .getOriginalEstimateMinutes();
-                                        } else {
-                                            noEstimatesCount++;
-                                        }
-                                        if (issue.get().getTimeTracking().getTimeSpentMinutes() != null) {
-                                            loggedHours += issue.get().getTimeTracking().getTimeSpentMinutes();
-                                        }
+                                    if (issue.getFields().getTimeoriginalestimate() != null) {
+                                        estimatedHours += (issue.getFields().getTimeoriginalestimate()/(60d*60d));
+                                    } else {
+                                        noEstimatesCount++;
                                     }
-                                    if (issue.get().getDescription() == null) {
+                                    if (issue.getFields().getTimespent() != null) {
+                                        loggedHours += (issue.getFields().getTimespent()/(60d*60d));
+                                    }
+                                    if (issue.getFields().getDescription() == null) {
                                         noDescriptionCount++;
                                     }
                                 }
                                 startAt += 1000;
                                 maxValue += 1000;
-                                retrievedIssue = restClient.getSearchClient()
-                                        .searchJql(" sprint = " + sprint.getId() + " AND project = '" + project + "'",
-                                                maxValue, startAt, null)
-                                        .claim().getIssues();
+                                retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl," sprint = " + sprint.getSprintId() + " AND project = '" + project + "'",maxValue,startAt);
                             }
-                            RemovedIssues removedIssues = removedIssuesService.get(jiraClient.getRestClient(), rvId, sprintId);
-                            Integer changed = removedIssues.getIssuesAdded().size()
-                                    + removedIssues.getPuntedIssues().size();
+                            Contents contents = JiraRestUtil.getRemovedAndIncompleteIssues(projectUrl,rvId,sprintId);
+
+                            Integer changed = contents.getIssueKeysAddedDuringSprint().keySet().size()
+                                    + contents.getPuntedIssues().size();
+
                             sprintDetails.setSprintChanges(changed + " / " + totalEstimates);
                             accuracy = ((estimatedHours * 1D) / loggedHours) * 100;
                             sprintDetails.setEstimatedVsActualAccuracy(accuracy.intValue() + " %");

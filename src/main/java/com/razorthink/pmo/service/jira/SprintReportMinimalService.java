@@ -1,14 +1,16 @@
 package com.razorthink.pmo.service.jira;
 
-import com.atlassian.jira.rest.client.api.JiraRestClient;
-import com.atlassian.jira.rest.client.api.domain.Issue;
-import com.atlassian.util.concurrent.Promise;
+
 import com.razorthink.pmo.bean.reports.*;
+import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
+import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
+import com.razorthink.pmo.bean.reports.jira.greenhopper.IssueGreenHopperPOJO;
 import com.razorthink.pmo.commons.exceptions.DataException;
+import com.razorthink.pmo.repositories.ProjectUrlsRepository;
+import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
-import net.rcarz.jiraclient.JiraClient;
-import net.rcarz.jiraclient.JiraException;
-import net.rcarz.jiraclient.greenhopper.SprintIssue;
+
+import com.razorthink.pmo.utils.JiraRestUtil;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,9 +19,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ExecutionException;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -30,11 +30,7 @@ public class SprintReportMinimalService {
     private Environment env;
 
     @Autowired
-    private RemovedIssuesService removedIssuesService;
-
-   @Autowired
-   private ProjectClients projectClients;
-
+    private ProjectUrlsRepository projectUrlsRepository;
 
     private static final Logger logger = LoggerFactory.getLogger(SprintReportMinimalService.class);
 
@@ -49,8 +45,7 @@ public class SprintReportMinimalService {
     public GenericReportResponse getMininmalSprintReport(BasicReportRequestParams params) {
         logger.debug("getMininmalSprintReport");
 
-        JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(params.getProjectUrlId());
-
+        ProjectUrls projectUrl = projectUrlsRepository.findOne(params.getProjectUrlId());
         String sprint = params.getSprintName();
         String project = params.getSubProjectName();
         Integer maxResults = 1000;
@@ -63,19 +58,27 @@ public class SprintReportMinimalService {
         }
         List<SprintReport> sprintReportList = new ArrayList<>();
         SprintReport sprintReport;
-        Iterable<Issue> retrievedIssue = jiraClientsPOJO.getJqlClient().getSearchClient()
-                .searchJql(" sprint = '" + sprint + "' AND project = '" + project + "'", 1000, 0, null).claim()
-                .getIssues();
+        List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint + "' AND project = '" + project + "'",1000,0);
         Pattern pattern = Pattern.compile("\\[\".*\\[id=(.*),rapidViewId=(.*),.*,name=(.*),startDate=(.*),.*\\]");
-        Matcher matcher = pattern
-                .matcher(retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());
+        /*Matcher matcher = pattern
+                .matcher(retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());*/
+
+        Matcher matcher = pattern.matcher(
+                "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");
+
         if (matcher.find()) {
             sprintId = Integer.parseInt(matcher.group(1));
             rvId = Integer.parseInt(matcher.group(2));
         }
-        processRetrievedIssues(jiraClientsPOJO.getJqlClient(), sprint, project, maxResults, startAt, sprintReportList, retrievedIssue);
+        Contents contents = JiraRestUtil.getRemovedAndIncompleteIssues(projectUrl,rvId,sprintId);
+        Set<String> addedIssuesSet = contents.getIssueKeysAddedDuringSprint().keySet();
+        Map<String, IssuePOJO> issuesAddedMap = processRetrievedIssuesAndReturnIssuesAddedDetails(projectUrl , sprint, project, maxResults, sprintReportList, retrievedIssue, addedIssuesSet);
         addHeaderString(sprintReportList,"Removed Issues");
-        processRemovedIssues(jiraClientsPOJO.getJqlClient(), jiraClientsPOJO.getJiraClient(), rvId, sprintId, sprintReportList);
+
+        processPuntedIssues(projectUrl, sprintReportList, contents);
+        addHeaderString(sprintReportList,"Issues Added during Sprint");
+        processAddedIssues(projectUrl, sprintReportList, issuesAddedMap);
+
         String filename = project + "_" + sprint + "_minimal_report.csv";
         filename = filename.replace(" ", "_");
         ConvertToCSV exportToCSV = new ConvertToCSV();
@@ -86,137 +89,108 @@ public class SprintReportMinimalService {
         return response;
     }
 
-    private void processRemovedIssues(JiraRestClient restClient, JiraClient jiraClient, int rvId, int sprintId, List<SprintReport> sprintReportList) {
+    private void processPuntedIssues( ProjectUrls projectUrl, List<SprintReport> sprintReportList, Contents contents) {
         SprintReport sprintReport;
-        try {
-            RemovedIssues removedIssues = removedIssuesService.get(jiraClient.getRestClient(), rvId, sprintId);
-            processPuntedIssues(restClient, sprintReportList, removedIssues);
-            addHeaderString(sprintReportList,"Issues Added during Sprint");
-            processAddedIssues(restClient, sprintReportList, removedIssues);
-        } catch (JiraException e) {
-            logger.error("Error:" + e.getMessage());
-            throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
-        }
-    }
-
-    private void processPuntedIssues(JiraRestClient restClient, List<SprintReport> sprintReportList, RemovedIssues removedIssues) {
-        SprintReport sprintReport;
-        for (SprintIssue issueValue : removedIssues.getPuntedIssues()) {
-            Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
+        for (IssueGreenHopperPOJO issue : contents.getPuntedIssues()) {
+            //Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
             sprintReport = new SprintReport();
-            try {
 
-                sprintReport.setIssueKey(issue.get().getKey());
-                sprintReport.setIssueType(issue.get().getIssueType().getName());
-                sprintReport.setStatus(issue.get().getStatus().getName());
-                sprintReport.setIssueSummary(issue.get().getSummary());
-                if (issue.get().getAssignee() != null) {
-                    sprintReport.setAssignee(issue.get().getAssignee().getDisplayName());
+
+                sprintReport.setIssueKey(issue.getKey());
+                sprintReport.setIssueType(issue.getTypeName());
+                sprintReport.setStatus(issue.getStatusName());
+                sprintReport.setIssueSummary(issue.getSummary());
+                if (issue.getAssigneeName() != null) {
+                    sprintReport.setAssignee(issue.getAssigneeName());
                 } else {
                     sprintReport.setAssignee("unassigned");
                 }
-                if (issue.get().getTimeTracking() != null) {
-                    if (issue.get().getTimeTracking().getOriginalEstimateMinutes() != null) {
+                if (issue.getEstimateStatistic() != null) {
                         sprintReport.setEstimatedHours(new DecimalFormat("##.##")
-                                .format(issue.get().getTimeTracking().getOriginalEstimateMinutes() / 60D));
+                                .format(issue.getEstimateStatistic().getStatFieldValue().getValue() / (60D*60d)));
                     } else {
                         sprintReport.setEstimatedHours("0");
                     }
-                    if (issue.get().getTimeTracking().getTimeSpentMinutes() != null) {
-                        sprintReport.setLoggedHours(new DecimalFormat("##.##")
-                                .format(issue.get().getTimeTracking().getTimeSpentMinutes() / 60D));
-                    } else {
-                        sprintReport.setLoggedHours("0");
-                    }
-                }
+                    sprintReport.setLoggedHours("0");
+
                 sprintReportList.add(sprintReport);
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error("Error:" + e.getMessage());
-                throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
-            }
         }
     }
 
-    private void processAddedIssues(JiraRestClient restClient, List<SprintReport> sprintReportList, RemovedIssues removedIssues) {
+    private void processAddedIssues(ProjectUrls projectUrl, List<SprintReport> sprintReportList, Map<String,IssuePOJO> issuesAddedMap) {
         SprintReport sprintReport;
-        for (String issueValue : removedIssues.getIssuesAdded()) {
-            Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue);
+        for (Map.Entry<String,IssuePOJO> issueMapEntry : issuesAddedMap.entrySet()) {
+            //Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue);
+            IssuePOJO issue = issueMapEntry.getValue();
             sprintReport = new SprintReport();
-            try {
 
-                sprintReport.setIssueKey(issue.get().getKey());
-                sprintReport.setIssueType(issue.get().getIssueType().getName());
-                sprintReport.setStatus(issue.get().getStatus().getName());
-                sprintReport.setIssueSummary(issue.get().getSummary());
-                if (issue.get().getAssignee() != null) {
-                    sprintReport.setAssignee(issue.get().getAssignee().getDisplayName());
+                sprintReport.setIssueKey(issue.getKey());
+                sprintReport.setIssueType(issue.getFields().getIssuetype().getName());
+                sprintReport.setStatus(issue.getFields().getStatus().getName());
+                sprintReport.setIssueSummary(issue.getFields().getSummary());
+                if (issue.getFields().getAssignee() != null) {
+                    sprintReport.setAssignee(issue.getFields().getAssignee().getDisplayName());
                 } else {
                     sprintReport.setAssignee("unassigned");
                 }
-                if (issue.get().getTimeTracking() != null) {
-                    if (issue.get().getTimeTracking().getOriginalEstimateMinutes() != null) {
+
+                    if (issue.getFields().getTimeoriginalestimate() != null) {
                         sprintReport.setEstimatedHours(new DecimalFormat("##.##")
-                                .format(issue.get().getTimeTracking().getOriginalEstimateMinutes() / 60D));
+                                .format(issue.getFields().getTimeoriginalestimate() / (60D*60d)));
                     } else {
                         sprintReport.setEstimatedHours("0");
                     }
-                    if (issue.get().getTimeTracking().getTimeSpentMinutes() != null) {
+                    if (issue.getFields().getTimespent() != null) {
                         sprintReport.setLoggedHours(new DecimalFormat("##.##")
-                                .format(issue.get().getTimeTracking().getTimeSpentMinutes() / 60D));
+                                .format(issue.getFields().getTimespent() / (60D*60d)));
                     } else {
                         sprintReport.setLoggedHours("0");
                     }
-                }
+
                 sprintReportList.add(sprintReport);
-            } catch (InterruptedException | ExecutionException e) {
-                logger.error("Error:" + e.getMessage());
-                throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
-            }
         }
     }
 
-    private void processRetrievedIssues(JiraRestClient restClient, String sprint, String project, Integer maxResults, Integer startAt, List<SprintReport> sprintReportList, Iterable<Issue> retrievedIssue) {
+    private Map<String,IssuePOJO> processRetrievedIssuesAndReturnIssuesAddedDetails(ProjectUrls projectUrl, String sprint, String project, Integer maxResults, List<SprintReport> sprintReportList, List<IssuePOJO> retrievedIssue, Set<String> addedIssues) {
         SprintReport sprintReport;
+        int startAt = 0;
+        Map<String, IssuePOJO> issuesAddedMap = new HashMap<>();
         while (retrievedIssue.iterator().hasNext()) {
-            for (Issue issueValue : retrievedIssue) {
-                Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
+            for (IssuePOJO issue : retrievedIssue) {
+
+                if(addedIssues.contains(issue.getKey()))
+                    issuesAddedMap.put(issue.getKey(), issue);
+                //Promise<Issue> issue = restClient.getIssueClient().getIssue(issueValue.getKey());
                 sprintReport = new SprintReport();
-                try {
-                    sprintReport.setIssueKey(issue.get().getKey());
-                    sprintReport.setIssueType(issue.get().getIssueType().getName());
-                    sprintReport.setStatus(issue.get().getStatus().getName());
-                    sprintReport.setIssueSummary(issue.get().getSummary());
-                    if (issue.get().getAssignee() != null) {
-                        sprintReport.setAssignee(issue.get().getAssignee().getDisplayName());
+                    sprintReport.setIssueKey(issue.getKey());
+                    sprintReport.setIssueType(issue.getFields().getIssuetype().getName());
+                    sprintReport.setStatus(issue.getFields().getStatus().getName());
+                    sprintReport.setIssueSummary(issue.getFields().getSummary());
+                    if (issue.getFields().getAssignee() != null) {
+                        sprintReport.setAssignee(issue.getFields().getAssignee().getDisplayName());
                     } else {
                         sprintReport.setAssignee("unassigned");
                     }
-                    if (issue.get().getTimeTracking() != null) {
-                        if (issue.get().getTimeTracking().getOriginalEstimateMinutes() != null) {
+                        if (issue.getFields().getTimeoriginalestimate() != null) {
                             sprintReport.setEstimatedHours(new DecimalFormat("##.##")
-                                    .format(issue.get().getTimeTracking().getOriginalEstimateMinutes() / 60D));
+                                    .format(issue.getFields().getTimeoriginalestimate() / (60D* 60d)));
                         } else {
                             sprintReport.setEstimatedHours("0");
                         }
-                        if (issue.get().getTimeTracking().getTimeSpentMinutes() != null) {
+                        if (issue.getFields().getTimespent() != null) {
                             sprintReport.setLoggedHours(new DecimalFormat("##.##")
-                                    .format(issue.get().getTimeTracking().getTimeSpentMinutes() / 60D));
+                                    .format(issue.getFields().getTimespent() / (60D* 60d)));
                         } else {
                             sprintReport.setLoggedHours("0");
                         }
-                    }
+
                     sprintReportList.add(sprintReport);
-                } catch (InterruptedException | ExecutionException e) {
-                    logger.error("Error:" + e.getMessage());
-                    throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
-                }
             }
             startAt += 1000;
             maxResults += 1000;
-            retrievedIssue = restClient.getSearchClient()
-                    .searchJql(" sprint = '" + sprint + "' AND project = '" + project + "'", maxResults, startAt, null)
-                    .claim().getIssues();
+            retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint + "' AND project = '" + project + "'",maxResults,startAt);
         }
+        return issuesAddedMap;
     }
 
     private void addHeaderString(List<SprintReport> sprintReportList, String issueKeyHeader) {

@@ -5,7 +5,7 @@ package com.razorthink.pmo.bean.projecturls;
  */
 public class SubProject {
     private String subProjectName;
-    private Integer subProjectId;
+    private String subProjectId;
 
     public String getSubProjectName() {
         return subProjectName;
@@ -15,11 +15,11 @@ public class SubProject {
         this.subProjectName = subProjectName;
     }
 
-    public Integer getSubProjectId() {
+    public String getSubProjectId() {
         return subProjectId;
     }
 
-    public void setSubProjectId(Integer subProjectId) {
+    public void setSubProjectId(String subProjectId) {
         this.subProjectId = subProjectId;
     }
 }

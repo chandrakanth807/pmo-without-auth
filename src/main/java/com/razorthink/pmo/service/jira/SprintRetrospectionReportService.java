@@ -1,15 +1,18 @@
 package com.razorthink.pmo.service.jira;
 
-import com.atlassian.jira.rest.client.api.JiraRestClient;
-import com.atlassian.jira.rest.client.api.domain.Issue;
-import com.atlassian.jira.rest.client.api.domain.Worklog;
-import com.atlassian.util.concurrent.Promise;
+
 import com.razorthink.pmo.bean.reports.*;
+import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
+import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
+import com.razorthink.pmo.bean.reports.jira.greenhopper.IssueGreenHopperPOJO;
 import com.razorthink.pmo.commons.exceptions.DataException;
+
+import com.razorthink.pmo.repositories.ProjectUrlsRepository;
+import com.razorthink.pmo.tables.ProjectUrls;
 import com.razorthink.pmo.utils.ConvertToCSV;
-import net.rcarz.jiraclient.JiraClient;
-import net.rcarz.jiraclient.JiraException;
-import net.rcarz.jiraclient.greenhopper.SprintIssue;
+import com.razorthink.pmo.utils.JiraRestUtil;
+
+
 import org.joda.time.DateTime;
 import org.joda.time.DateTimeConstants;
 import org.joda.time.DateTimeZone;
@@ -22,10 +25,7 @@ import org.springframework.stereotype.Service;
 
 import java.text.DecimalFormat;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.TreeSet;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -39,10 +39,7 @@ public class SprintRetrospectionReportService {
     private Environment env;
 
     @Autowired
-    private IncompletedIssuesService incompletedIssuesService;
-
-    @Autowired
-    private ProjectClients projectClients;
+    private ProjectUrlsRepository projectUrlsRepository;
 
 
     /**
@@ -55,11 +52,12 @@ public class SprintRetrospectionReportService {
     public GenericReportResponse getSprintRetrospectionReport(BasicReportRequestParams params) {
         logger.debug("getSprintRetrospectionReport");
 
-        JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(params.getProjectUrlId());
+        ProjectUrls projectUrl = projectUrlsRepository.findOne(params.getProjectUrlId());
+        //JiraClientsPOJO jiraClientsPOJO = projectClients.getJiraClientForProjectUrlId(params.getProjectUrlId());
 
         String project = params.getSubProjectName();
         String sprint = params.getSprintName();
-        List<SprintRetrospection> sprintRetrospectionReport = processSprintRetrospectionRelatedIssues(jiraClientsPOJO.getJqlClient(), jiraClientsPOJO.getJiraClient(), project, sprint);
+        List<SprintRetrospection> sprintRetrospectionReport = processSprintRetrospectionRelatedIssues(projectUrl, project, sprint);
 
         String filename = project + "_" + sprint + "_retrospection_report.csv";
         filename = filename.replace(" ", "_");
@@ -72,21 +70,14 @@ public class SprintRetrospectionReportService {
         return response;
     }
 
-    private List<SprintRetrospection> processSprintRetrospectionRelatedIssues(JiraRestClient restClient, JiraClient jiraClient, String project, String sprint) {
+    private List<SprintRetrospection> processSprintRetrospectionRelatedIssues(ProjectUrls projectUrl, String project, String sprint) {
         int rvId = 0;
         int sprintId = 0;
-        Double actualHours = 0.0;
-        Double estimatedHours = 0.0;
-        Integer totalTasks = 0;
-        Integer incompletedTasks = 0;
-        Double availableHours = 0.0;
-        Double surplus = 0.0;
         DateTime startDt = null;
         DateTime endDt = null;
-        DateTime tempDate = null;
         DateTime completeDate = null;
         String timezone = null;
-        String jql = null;
+
         List<SprintRetrospection> sprintRetrospectionReport = new ArrayList<>();
         List<String> incompleteIssueKeys = new ArrayList<>();
 
@@ -95,13 +86,18 @@ public class SprintRetrospectionReportService {
             logger.error("Error: Missing required paramaters");
             throw new DataException(HttpStatus.BAD_REQUEST.toString(), "Missing required paramaters");
         }
-        Iterable<Issue> retrievedIssue = restClient.getSearchClient().searchJql(" sprint = '" + sprint
+
+        List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint
+                + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee", 1000, 0);
+
+        /*Iterable<Issue> retrievedIssue = restClient.getSearchClient().searchJql(" sprint = '" + sprint
                 + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee", 1000, 0, null)
-                .claim().getIssues();
+                .claim().getIssues();*/
         Pattern pattern = Pattern.compile(
                 "\\[\".*\\[id=(.*),rapidViewId=(.*),.*,name=(.*),goal=.*,startDate=(.*),endDate=(.*),completeDate=(.*),.*\\]");
-        Matcher matcher = pattern
-                .matcher(retrievedIssue.iterator().next().getFieldByName("Sprint").getValue().toString());
+
+        Matcher matcher = pattern.matcher(
+                "[\"" + retrievedIssue.get(0).getFields().getCustomfield_10003().get(0) + "\"]");
         while (matcher.find()) {
             if (matcher.group(3).equals(sprint)) {
                 timezone = matcher.group(4).substring(23);
@@ -115,107 +111,99 @@ public class SprintRetrospectionReportService {
                 rvId = Integer.parseInt(matcher.group(2));
             }
         }
-        processIncompletedIssues(jiraClient, rvId, sprintId, incompleteIssueKeys);
-        processRetrievedIssues(restClient, project, sprint, startDt, endDt, completeDate, timezone, sprintRetrospectionReport, incompleteIssueKeys, assignee, retrievedIssue);
+        processIncompletedIssues(projectUrl, rvId, sprintId, incompleteIssueKeys);
+        processRetrievedIssues(projectUrl, project, sprint, startDt, endDt, completeDate, timezone, sprintRetrospectionReport, incompleteIssueKeys, assignee, retrievedIssue);
         return sprintRetrospectionReport;
     }
 
-    private void processIncompletedIssues(JiraClient jiraClient, int rvId, int sprintId, List<String> incompleteIssueKeys) {
-        try {
-            IncompletedIssues incompletedIssues = incompletedIssuesService.get(jiraClient.getRestClient(), rvId, sprintId);
-            for (SprintIssue issueValue : incompletedIssues.getIncompleteIssues()) {
-                incompleteIssueKeys.add(issueValue.getKey());
-            }
-        } catch (JiraException e) {
-            logger.error("Error:" + e.getMessage());
-            throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
+    private void processIncompletedIssues(ProjectUrls projectUrl, int rvId, int sprintId, List<String> incompleteIssueKeys) {
+        Contents contents = JiraRestUtil.getRemovedAndIncompleteIssues(projectUrl, rvId, sprintId);
+        List<IssueGreenHopperPOJO> issuesNotComplete = contents.getIssuesNotCompletedInCurrentSprint();
+        for (IssueGreenHopperPOJO issueValue : issuesNotComplete) {
+            incompleteIssueKeys.add(issueValue.getKey());
         }
     }
 
-    private void processRetrievedIssues(JiraRestClient restClient, String project, String sprint, DateTime startDt, DateTime endDt, DateTime completeDate, String timezone, List<SprintRetrospection> sprintRetrospectionReport, List<String> incompleteIssueKeys, Set<String> assignee, Iterable<Issue> retrievedIssue) {
-        Double availableHours,actualHours,estimatedHours,surplus;
-        String jql;
-        Integer totalTasks, incompletedTasks;
-        DateTime tempDate;
+    private void processRetrievedIssues(ProjectUrls projectUrl, String project, String sprint, DateTime startDt, DateTime endDt, DateTime completeDate, String timezone, List<SprintRetrospection> sprintRetrospectionReport, List<String> incompleteIssueKeys, Set<String> assignee, List<IssuePOJO> retrievedIssue) {
 
-        for (Issue issueValue : retrievedIssue) {
-            availableHours = 0.0;
-            if (!assignee.contains(issueValue.getAssignee().getDisplayName())) {
-                jql = " sprint = '" + sprint
-                        + "' AND project = '" + project + "' AND timespent > 0 AND assignee is not EMPTY ORDER BY assignee";
-                Iterable<Issue> assigneeIssue = restClient.getSearchClient().searchJql(jql, 1000, 0, null).claim()
-                        .getIssues();
-                SprintRetrospection sprintRetrospection = new SprintRetrospection();
-                actualHours = 0.0;
-                estimatedHours = 0.0;
-                totalTasks = 0;
-                incompletedTasks = 0;
-                for (Issue assigneeIssueValue : assigneeIssue) {
-                    Promise<Issue> issue = restClient.getIssueClient().getIssue(assigneeIssueValue.getKey());
-                    try {
-                        if (issue.get().getTimeTracking() != null) {
-                            if (issue.get().getTimeTracking().getOriginalEstimateMinutes() != null) {
-                                if (issueValue.getAssignee().getName()
-                                        .equals(assigneeIssueValue.getAssignee().getName())) {
-                                    estimatedHours += issue.get().getTimeTracking().getOriginalEstimateMinutes();
-                                }
-                            }
-                            if (issue.get().getTimeTracking().getTimeSpentMinutes() != null) {
-                                Iterable<Worklog> worklogList = issue.get().getWorklogs();
-                                for (Worklog worklog : worklogList) {
-                                    if ((worklog.getUpdateDate().compareTo(startDt) >= 0 && ((completeDate != null
-                                            && (worklog.getUpdateDate().compareTo(completeDate) <= 0))
-                                            || completeDate == null
-                                            && ((worklog.getUpdateDate().compareTo(endDt) <= 0))))
-                                            && worklog.getUpdateAuthor().getName()
-                                            .equals(issueValue.getAssignee().getName())) {
-                                        actualHours += worklog.getMinutesSpent();
-                                    }
-                                }
-                            }
-                        }
-                        if (incompleteIssueKeys.contains(issue.get().getKey())) {
-                            incompletedTasks++;
-                        }
-                        totalTasks++;
-                    } catch (InterruptedException | ExecutionException e) {
-                        logger.error("Error:" + e.getMessage());
-                        throw new DataException(HttpStatus.INTERNAL_SERVER_ERROR.toString(), e.getMessage());
+        int startAt = 0;
+        int maxResults = 1000;
+
+        Map<String, SprintRetrospection> assigneeSpecificDetailsMap = new HashMap<>();
+        double availableHours = calculateAvailableHours(startDt, endDt, timezone);
+        while (retrievedIssue != null && retrievedIssue.size() != 0) {
+            for (IssuePOJO issueValue : retrievedIssue) {
+
+                if (issueValue.getFields().getAssignee()!=null)
+                {
+                    SprintRetrospection sprintRetrospection = assigneeSpecificDetailsMap.get(issueValue.getFields().getAssignee().getDisplayName());
+                    boolean newEntry = false;
+                    if(sprintRetrospection == null)
+                    {
+                        sprintRetrospection = new SprintRetrospection();
+                        newEntry = true;
                     }
-                }
-                tempDate = new DateTime(startDt.getMillis(), DateTimeZone.forID(ZoneId.of(timezone).toString()));
-                while (tempDate.compareTo(endDt) <= 0) {
-                    if (tempDate.getDayOfWeek() != DateTimeConstants.SATURDAY
-                            && tempDate.getDayOfWeek() != DateTimeConstants.SUNDAY) {
-                        availableHours += 1;
+
+                    Double originalEstimate = issueValue.getFields().getTimeoriginalestimate();
+                    Double timeSpent = issueValue.getFields().getTimespent();
+                    if(originalEstimate !=null)
+                    {
+                        originalEstimate = originalEstimate/(60d*60d);
+                        double es = sprintRetrospection.getEstimatedHours();
+                        sprintRetrospection.setEstimatedHours(es + originalEstimate);
                     }
-                    tempDate = tempDate.plusDays(1);
+                    if(timeSpent !=null)
+                    {
+                        timeSpent = timeSpent/(60d *60d);
+                        double ts = sprintRetrospection.getTimeTaken();
+                        sprintRetrospection.setTimeTaken(ts + timeSpent);
+                    }
+                    if(incompleteIssueKeys.contains(issueValue.getKey()))
+                    {
+                        int temp = sprintRetrospection.getIncompletedIssues();
+                        sprintRetrospection.setIncompletedIssues(temp + 1);
+                    }
+                    int temp = sprintRetrospection.getTotalTasks();
+                    sprintRetrospection.setTotalTasks(temp + 1);
+                    if(newEntry)
+                        assigneeSpecificDetailsMap.put(issueValue.getFields().getAssignee().getDisplayName(), sprintRetrospection);
 
                 }
-                availableHours *= 8D;
-                estimatedHours /= 60D;
-                actualHours /= 60D;
-
-                surplus = availableHours - estimatedHours;
-                sprintRetrospection.setAssignee(issueValue.getAssignee().getDisplayName());
-                sprintRetrospection
-                        .setEstimatedHours(Double.parseDouble(new DecimalFormat("##.##").format(estimatedHours)));
-                sprintRetrospection.setTimeTaken(Double.parseDouble(new DecimalFormat("##.##").format(actualHours)));
-                sprintRetrospection.setAvailableHours(availableHours);
-                sprintRetrospection.setSurplus(surplus);
-                sprintRetrospection.setBuffer(
-                        Double.parseDouble(new DecimalFormat("##.##").format((surplus / availableHours) * 100)));
-                if (actualHours != 0) {
-                    sprintRetrospection.setEfficiency(Double.parseDouble(new DecimalFormat("##.##")
-                            .format(100 + ((estimatedHours - actualHours) / actualHours * 100))));
-                } else {
-                    sprintRetrospection.setEfficiency(0D);
-                }
-                sprintRetrospection.setTotalTasks(totalTasks);
-                sprintRetrospection.setIncompletedIssues(incompletedTasks);
-                sprintRetrospectionReport.add(sprintRetrospection);
-                assignee.add(issueValue.getAssignee().getDisplayName());
             }
+            startAt += maxResults;
+            retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl, " sprint = '" + sprint
+                    + "' AND project = '" + project + "' AND assignee is not EMPTY ORDER BY assignee", maxResults, startAt);
         }
+
+
+        for(Map.Entry<String,SprintRetrospection> entry : assigneeSpecificDetailsMap.entrySet() )
+        {
+            SprintRetrospection sprintRetrospection = entry.getValue();
+            sprintRetrospection.setAssignee(entry.getKey());
+
+            sprintRetrospection.setAvailableHours(availableHours);
+            sprintRetrospection.setSurplus(sprintRetrospection.getAvailableHours() - sprintRetrospection.getEstimatedHours());
+            sprintRetrospection.setBuffer(new DecimalFormat("##.##").format((sprintRetrospection.getSurplus() / availableHours) * 100)+" %");
+            double efficiency = ((sprintRetrospection.getEstimatedHours() - sprintRetrospection.getTimeTaken()) / sprintRetrospection.getEstimatedHours())*100;
+            sprintRetrospection.setEfficiency(new DecimalFormat("##.##").format(100d + efficiency)+" %");
+
+        }
+        sprintRetrospectionReport.addAll(assigneeSpecificDetailsMap.values());
+
+    }
+
+    private double calculateAvailableHours(DateTime startDt, DateTime endDt, String timezone) {
+        double availableHours = 0d;
+        DateTime tempDate = new DateTime(startDt.getMillis(), DateTimeZone.forID(ZoneId.of(timezone).toString()));
+        while (tempDate.compareTo(endDt) <= 0) {
+            if (tempDate.getDayOfWeek() != DateTimeConstants.SATURDAY
+                    && tempDate.getDayOfWeek() != DateTimeConstants.SUNDAY) {
+                availableHours += 1;
+            }
+            tempDate = tempDate.plusDays(1);
+
+        }
+        availableHours *= 8D;
+        return availableHours;
     }
 }

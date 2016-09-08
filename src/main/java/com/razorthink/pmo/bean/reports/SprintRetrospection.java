@@ -3,15 +3,26 @@ package com.razorthink.pmo.bean.reports;
 public class SprintRetrospection {
 
     private String assignee;
-    private Double estimatedHours;
-    private Double availableHours;
-    private Double surplus;
-    private Double buffer;
-    private Double efficiency;
-    private Double timeTaken;
-    private Integer totalTasks;
-    private Integer incompletedIssues;
+    private double estimatedHours;
+    private double availableHours;
+    private double surplus;
+    private String buffer;
+    private String efficiency;
+    private double timeTaken;
+    private int totalTasks;
+    private int incompletedIssues;
 
+    public SprintRetrospection()
+    {
+        this.estimatedHours =0d;
+        this.availableHours = 0d;
+        this.surplus = 0d;
+        this.buffer = "";
+        this.efficiency = "";
+        this.timeTaken = 0d;
+        this.totalTasks = 0;
+        this.incompletedIssues = 0;
+    }
     public String getAssignee() {
         return assignee;
     }
@@ -20,67 +31,67 @@ public class SprintRetrospection {
         this.assignee = assignee;
     }
 
-    public Double getEstimatedHours() {
+    public double getEstimatedHours() {
         return estimatedHours;
     }
 
-    public void setEstimatedHours(Double estimatedHours) {
+    public void setEstimatedHours(double estimatedHours) {
         this.estimatedHours = estimatedHours;
     }
 
-    public Double getAvailableHours() {
+    public double getAvailableHours() {
         return availableHours;
     }
 
-    public void setAvailableHours(Double availableHours) {
+    public void setAvailableHours(double availableHours) {
         this.availableHours = availableHours;
     }
 
-    public Double getSurplus() {
+    public double getSurplus() {
         return surplus;
     }
 
-    public void setSurplus(Double surplus) {
+    public void setSurplus(double surplus) {
         this.surplus = surplus;
     }
 
-    public Double getBuffer() {
+    public String getBuffer() {
         return buffer;
     }
 
-    public void setBuffer(Double buffer) {
+    public void setBuffer(String buffer) {
         this.buffer = buffer;
     }
 
-    public Double getEfficiency() {
+    public String getEfficiency() {
         return efficiency;
     }
 
-    public void setEfficiency(Double efficiency) {
+    public void setEfficiency(String efficiency) {
         this.efficiency = efficiency;
     }
 
-    public Double getTimeTaken() {
+    public double getTimeTaken() {
         return timeTaken;
     }
 
-    public void setTimeTaken(Double timeTaken) {
+    public void setTimeTaken(double timeTaken) {
         this.timeTaken = timeTaken;
     }
 
-    public Integer getTotalTasks() {
+    public int getTotalTasks() {
         return totalTasks;
     }
 
-    public void setTotalTasks(Integer totalTasks) {
+    public void setTotalTasks(int totalTasks) {
         this.totalTasks = totalTasks;
     }
 
-    public Integer getIncompletedIssues() {
+    public int getIncompletedIssues() {
         return incompletedIssues;
     }
 
-    public void setIncompletedIssues(Integer incompletedIssues) {
+    public void setIncompletedIssues(int incompletedIssues) {
         this.incompletedIssues = incompletedIssues;
     }
 }
