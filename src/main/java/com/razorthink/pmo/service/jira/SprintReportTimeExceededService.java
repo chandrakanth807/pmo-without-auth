@@ -15,6 +15,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.text.DecimalFormat;
 import java.util.ArrayList;
 import java.util.List;
@@ -72,7 +75,13 @@ public class SprintReportTimeExceededService {
         ConvertToCSV exportToCSV = new ConvertToCSV();
         exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, sprintReportList);
         GenericReportResponse response = new GenericReportResponse();
-        response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
+        String downloadLink = null;
+        try {
+            downloadLink = env.getProperty(Constants.Jira.DOWNLOAD_LINK_BASE_PATH_PROPERTY) + URLEncoder.encode(filename, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            downloadLink = "unsupported encoding format error";
+        }
+        response.setDownloadLink(downloadLink);
         response.setReportAsJson(sprintReportList);
         return response;
     }

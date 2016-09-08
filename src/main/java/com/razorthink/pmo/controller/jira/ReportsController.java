@@ -4,11 +4,18 @@ import com.razorthink.pmo.bean.reports.BasicReportRequestParams;
 import com.razorthink.pmo.commons.config.RestControllerRoute;
 import com.razorthink.pmo.controller.AbstractWebappController;
 import com.razorthink.pmo.service.jira.*;
+import org.apache.tomcat.util.http.fileupload.IOUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import javax.servlet.http.HttpServletResponse;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 
 
 @RestController
@@ -16,6 +23,9 @@ import org.springframework.web.bind.annotation.*;
 public class ReportsController extends AbstractWebappController {
 
     private final Logger logger = LoggerFactory.getLogger(ReportsController.class);
+
+    @Autowired
+    Environment env;
 
     @Autowired
     private AggregateProjectReportService aggregateProjectReportService;
@@ -107,5 +117,14 @@ public class ReportsController extends AbstractWebappController {
             logger.error(e.getMessage());
             return buildErrorResponse(e);
         }
+    }
+
+    @RequestMapping(value = "/download/{fileID:.+}", method = RequestMethod.GET)
+    public void getFile( @PathVariable("fileID") String fileName, HttpServletResponse response) throws IOException {
+        String src = env.getProperty("csv.filename")+fileName;
+        //String src= DestLocation.concat("\\"+fileName+".jar");
+        InputStream is = new FileInputStream(src);
+        IOUtils.copy(is, response.getOutputStream());
+        response.flushBuffer();
     }
 }

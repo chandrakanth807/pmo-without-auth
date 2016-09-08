@@ -20,6 +20,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.stereotype.Service;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -83,7 +85,13 @@ public class AggregateProjectReportService {
             }
         }
         GenericReportResponse response = new GenericReportResponse();
-        response.setDownloadLink(env.getProperty(Constants.Jira.DOWNLOAD_LINK_BASE_PATH_PROPERTY) + filename);
+        String downloadLink = null;
+        try {
+            downloadLink = env.getProperty(Constants.Jira.DOWNLOAD_LINK_BASE_PATH_PROPERTY) + URLEncoder.encode(filename, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            downloadLink = "unsupported encoding format error";
+        }
+        response.setDownloadLink(downloadLink);
         response.setReportAsJson(aggregateProjectReport.getSprintDetails());
         return response;
     }

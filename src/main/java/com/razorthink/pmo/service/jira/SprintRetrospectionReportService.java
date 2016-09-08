@@ -5,6 +5,7 @@ import com.razorthink.pmo.bean.reports.*;
 import com.razorthink.pmo.bean.reports.jira.IssuePOJO;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.Contents;
 import com.razorthink.pmo.bean.reports.jira.greenhopper.IssueGreenHopperPOJO;
+import com.razorthink.pmo.commons.config.Constants;
 import com.razorthink.pmo.commons.exceptions.DataException;
 
 import com.razorthink.pmo.repositories.ProjectUrlsRepository;
@@ -23,6 +24,8 @@ import org.springframework.core.env.Environment;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
 import java.text.DecimalFormat;
 import java.time.ZoneId;
 import java.util.*;
@@ -65,7 +68,13 @@ public class SprintRetrospectionReportService {
         exportToCSV.exportToCSV(env.getProperty("csv.filename") + filename, sprintRetrospectionReport);
 
         GenericReportResponse response = new GenericReportResponse();
-        response.setDownloadLink(env.getProperty("csv.aliaspath") + filename);
+        String downloadLink = null;
+        try {
+            downloadLink = env.getProperty(Constants.Jira.DOWNLOAD_LINK_BASE_PATH_PROPERTY) + URLEncoder.encode(filename, "UTF-8");
+        } catch (UnsupportedEncodingException e) {
+            downloadLink = "unsupported encoding format error";
+        }
+        response.setDownloadLink(downloadLink);
         response.setReportAsJson(sprintRetrospectionReport);
         return response;
     }
