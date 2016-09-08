@@ -113,7 +113,7 @@ public class SprintReportMinimalService {
                 } else {
                     sprintReport.setAssignee("unassigned");
                 }
-                if (issue.getEstimateStatistic() != null) {
+                if (issue.getEstimateStatistic() != null && issue.getEstimateStatistic().getStatFieldValue()!=null && issue.getEstimateStatistic().getStatFieldValue().getValue()!=null) {
                         sprintReport.setEstimatedHours(new DecimalFormat("##.##")
                                 .format(issue.getEstimateStatistic().getStatFieldValue().getValue() / (60D*60d)));
                     } else {
