@@ -121,7 +121,7 @@ public class SprintReportTimeGainedService {
     }
 
     private Double getGainedHours(Double estimatedSeconds, Double loggedSeconds, String status) {
-        if (status != null && (status.toLowerCase().contains("ready") || (status.toLowerCase().contains("qa"))) && estimatedSeconds != null && loggedSeconds != null ) {
+        if (status != null /*&& (status.toLowerCase().contains("ready") || (status.toLowerCase().contains("qa")))*/ && estimatedSeconds != null && loggedSeconds != null ) {
             Double timeGainedSeconds = (estimatedSeconds - loggedSeconds);
 
             if (timeGainedSeconds >= 0) {

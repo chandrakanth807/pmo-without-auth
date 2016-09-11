@@ -120,7 +120,7 @@ public class SprintReportTimeExceededService {
     }
 
     private Double getTimeExceeded(Double estimatedSeconds, Double loggedSeconds, String status) {
-        if (status != null && (status.toLowerCase().contains("ready") || (status.toLowerCase().contains("qa"))) && loggedSeconds!=null && estimatedSeconds != null ) {
+        if (status != null /*&& (status.toLowerCase().contains("ready") || (status.toLowerCase().contains("qa")))*/ && loggedSeconds!=null && estimatedSeconds != null ) {
             Double timeExceededSeconds = (loggedSeconds - estimatedSeconds);
 
             if (timeExceededSeconds > 0) {
