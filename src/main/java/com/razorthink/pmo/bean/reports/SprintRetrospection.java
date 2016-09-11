@@ -3,14 +3,14 @@ package com.razorthink.pmo.bean.reports;
 public class SprintRetrospection {
 
     private String assignee;
-    private double estimatedHours;
-    private double availableHours;
-    private double surplus;
+    private Double estimatedHours;
+    private Double availableHours;
+    private Double surplus;
     private String buffer;
     private String efficiency;
-    private double timeTaken;
-    private int totalTasks;
-    private int incompletedIssues;
+    private Double timeTaken;
+    private Integer totalTasks;
+    private Integer incompletedIssues;
 
     public SprintRetrospection()
     {
@@ -23,6 +23,7 @@ public class SprintRetrospection {
         this.totalTasks = 0;
         this.incompletedIssues = 0;
     }
+
     public String getAssignee() {
         return assignee;
     }
@@ -31,27 +32,27 @@ public class SprintRetrospection {
         this.assignee = assignee;
     }
 
-    public double getEstimatedHours() {
+    public Double getEstimatedHours() {
         return estimatedHours;
     }
 
-    public void setEstimatedHours(double estimatedHours) {
+    public void setEstimatedHours(Double estimatedHours) {
         this.estimatedHours = estimatedHours;
     }
 
-    public double getAvailableHours() {
+    public Double getAvailableHours() {
         return availableHours;
     }
 
-    public void setAvailableHours(double availableHours) {
+    public void setAvailableHours(Double availableHours) {
         this.availableHours = availableHours;
     }
 
-    public double getSurplus() {
+    public Double getSurplus() {
         return surplus;
     }
 
-    public void setSurplus(double surplus) {
+    public void setSurplus(Double surplus) {
         this.surplus = surplus;
     }
 
@@ -71,27 +72,27 @@ public class SprintRetrospection {
         this.efficiency = efficiency;
     }
 
-    public double getTimeTaken() {
+    public Double getTimeTaken() {
         return timeTaken;
     }
 
-    public void setTimeTaken(double timeTaken) {
+    public void setTimeTaken(Double timeTaken) {
         this.timeTaken = timeTaken;
     }
 
-    public int getTotalTasks() {
+    public Integer getTotalTasks() {
         return totalTasks;
     }
 
-    public void setTotalTasks(int totalTasks) {
+    public void setTotalTasks(Integer totalTasks) {
         this.totalTasks = totalTasks;
     }
 
-    public int getIncompletedIssues() {
+    public Integer getIncompletedIssues() {
         return incompletedIssues;
     }
 
-    public void setIncompletedIssues(int incompletedIssues) {
+    public void setIncompletedIssues(Integer incompletedIssues) {
         this.incompletedIssues = incompletedIssues;
     }
 }
