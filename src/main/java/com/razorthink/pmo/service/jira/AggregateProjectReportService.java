@@ -66,6 +66,11 @@ public class AggregateProjectReportService {
         String filename = project + Constants.Jira.AGGREGATE_PROJECT_REPORT_EXTENSION;
         filename = filename.replace(" ", "_");
         ConvertToCSV exportToCSV = new ConvertToCSV();
+        if(aggregateProjectReport.getSprintDetails()==null)
+        {
+            List<SprintDetails> sprintDetailsTemp = new ArrayList<>();
+            aggregateProjectReport.setSprintDetails(sprintDetailsTemp);
+        }
         exportToCSV.exportToCSV(env.getProperty(Constants.Jira.CSV_DOWNLOAD_DIRECTORY_PATH_PROPERTY) + filename, aggregateProjectReport.getSprintDetails());
         FileWriter fileWriter = null;
         try {
