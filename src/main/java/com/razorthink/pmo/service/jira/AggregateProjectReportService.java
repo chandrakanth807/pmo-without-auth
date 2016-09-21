@@ -141,47 +141,30 @@ public class AggregateProjectReportService {
                         String jqlQuery = " sprint = " + sprint.getSprintId() + " AND project = '" + project + "'";
                         List<IssuePOJO> retrievedIssue = JiraRestUtil.findIssuesWithJQLQuery(projectUrl,jqlQuery,1000,0);
 
-                        if (retrievedIssue.iterator().hasNext()) {
+                        SprintAndRapidViewId sprintAndRapidViewIdDetails = JiraRestUtil.getSprintDetails(rapidViewName,sprint.getSprintName(), rapidviewsLIst);
+                        startDt = sprintAndRapidViewIdDetails.getSprint().getStartDate();
+                        endDt = sprintAndRapidViewIdDetails.getSprint().getEndDate();
+                        completeDate = sprintAndRapidViewIdDetails.getSprint().getCompleteDate();
 
-                            /*String sprintString = JiraRestUtil.findSprintDetailsWithJQLQuery(projectUrl, jqlQuery);
-                            Pattern pattern = Pattern.compile(
-                                    "[\\[,]\".*?\\[.*?=(\\d+),.*?=(\\d+),.*?name=(.*?),.*?=.*?,.*?=(.*?),.*?=(.*?),.*?=(.*?),.*?]\"");
-
-                            *//*Matcher matcher = pattern.matcher(
-                                    "[\""+retrievedIssue.get(0).getFields().getCustomfield_10003().get(0)+"\"]");*//*
-                            Matcher matcher = pattern.matcher(sprintString);
-                            while (matcher.find()) {
-                                logger.info("matched pattern is " + matcher.group());
-                                if (matcher.group(3).equals(sprint.getSprintName())) {
-                                    startDt = new DateTime(matcher.group(4));
-                                    endDt = new DateTime(matcher.group(5));
-                                    if (!matcher.group(6).equals("<null>")) {
-                                        completeDate = new DateTime(matcher.group(6));
-                                    }
-                                    sprintId = Integer.parseInt(matcher.group(1));
-                                }
-                            }*/
-                            SprintAndRapidViewId sprintAndRapidViewIdDetails = JiraRestUtil.getSprintDetails(rapidViewName,sprint.getSprintName(), rapidviewsLIst);
-                            startDt = sprintAndRapidViewIdDetails.getSprint().getStartDate();
-                            endDt = sprintAndRapidViewIdDetails.getSprint().getEndDate();
-                            completeDate = sprintAndRapidViewIdDetails.getSprint().getCompleteDate();
-                            sprintId = sprintAndRapidViewIdDetails.getSprint().getSprintId();
-
-                            sprintDetails.setStartDate(startDt.toString("MM/dd/yyyy"));
-                            sprintDetails.setEndDate(endDt.toString("MM/dd/yyyy"));
-                            if (completeDate != null) {
-                                int days = Days.daysBetween(endDt, completeDate).getDays();
-                                if (days >= 1) {
+                        sprintDetails.setStartDate(startDt.toString("MM/dd/yyyy"));
+                        sprintDetails.setEndDate(endDt.toString("MM/dd/yyyy"));
+                        if (completeDate != null) {
+                            int days = Days.daysBetween(endDt, completeDate).getDays();
+                            if (days >= 1) {
+                                sprintDetails.setDeliveryStatus("Delayed by " + days + " day");
+                                if (days == 1) {
                                     sprintDetails.setDeliveryStatus("Delayed by " + days + " day");
-                                    if (days == 1) {
-                                        sprintDetails.setDeliveryStatus("Delayed by " + days + " day");
-                                    }
-                                } else {
-                                    sprintDetails.setDeliveryStatus("Completed on time");
                                 }
                             } else {
-                                sprintDetails.setDeliveryStatus("In Progress");
+                                sprintDetails.setDeliveryStatus("Completed on time");
                             }
+                        } else {
+                            sprintDetails.setDeliveryStatus("In Progress");
+                        }
+
+                        if (retrievedIssue.iterator().hasNext()) {
+
+                            sprintId = sprintAndRapidViewIdDetails.getSprint().getSprintId();
                             totalEstimates = 0;
                             noEstimatesCount = 0;
                             noDescriptionCount = 0;
@@ -228,6 +211,10 @@ public class AggregateProjectReportService {
                             sprintDetailsList.add(sprintDetails);
                             aggregateProjectReport.setSprintDetails(sprintDetailsList);
                         } else {
+                            sprintDetails.setEstimatedVsActualAccuracy(" 0 %");
+                            sprintDetails.setSprintChanges("0 / 0");
+                            sprintDetails.setEstimateProvidedStatus("0 / 0");
+                            sprintDetails.setTaskDescription_Statistics("0 / 0");
                             sprintDetailsList.add(sprintDetails);
                         }
                     }
